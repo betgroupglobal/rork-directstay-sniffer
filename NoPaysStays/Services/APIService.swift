@@ -68,4 +68,60 @@ actor APIService {
             Property.fromBookingHit(hit)
         }
     }
+
+    func testGuestyWebhook() async throws -> GuestyWebhookResponse {
+        guard let url = URL(string: "\(baseURL)/api/v1/webhooks/guesty") else {
+            throw APIError.invalidURL
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("test.ping", forHTTPHeaderField: "X-Guesty-Event")
+
+        let testPayload: [String: Any] = [
+            "event": "test.ping",
+            "title": "Webhook Test",
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ]
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: testPayload)
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+
+        do {
+            return try decoder.decode(GuestyWebhookResponse.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
+    }
+
+    func checkHealth() async throws -> Bool {
+        guard let url = URL(string: "\(baseURL)/health") else {
+            throw APIError.invalidURL
+        }
+
+        let (_, response) = try await session.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return false
+        }
+
+        return (200...299).contains(httpResponse.statusCode)
+    }
+
+    var webhookURL: String {
+        "\(baseURL)/api/v1/webhooks/guesty"
+    }
+
+    nonisolated var webhookURLSync: String {
+        "https://directstay-crawl-api.vercel.app/api/v1/webhooks/guesty"
+    }
 }

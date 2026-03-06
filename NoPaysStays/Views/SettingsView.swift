@@ -1,9 +1,18 @@
 import SwiftUI
 
+enum WebhookTestStatus: Equatable {
+    case idle
+    case testing
+    case success
+    case failed(String)
+}
+
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var notificationsEnabled: Bool = true
     @State private var directOnlyAlerts: Bool = false
+    @State private var webhookStatus: WebhookTestStatus = .idle
+    @State private var copiedWebhookURL: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -94,6 +103,99 @@ struct SettingsView: View {
                     }
                 }
 
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(AppTheme.savingsGreen.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "antenna.radiowaves.left.and.right")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.savingsGreen)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Guesty Integration")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Receive listings via webhook")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Webhook URL")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+
+                            HStack {
+                                Text(APIService.shared.webhookURLSync)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+
+                                Spacer()
+
+                                Button {
+                                    UIPasteboard.general.string = APIService.shared.webhookURLSync
+                                    withAnimation(.spring(response: 0.3)) {
+                                        copiedWebhookURL = true
+                                    }
+                                    Task {
+                                        try? await Task.sleep(for: .seconds(2))
+                                        withAnimation { copiedWebhookURL = false }
+                                    }
+                                } label: {
+                                    Image(systemName: copiedWebhookURL ? "checkmark" : "doc.on.doc")
+                                        .font(.caption)
+                                        .foregroundStyle(copiedWebhookURL ? AppTheme.savingsGreen : AppTheme.burntOrange)
+                                        .contentTransition(.symbolEffect(.replace))
+                                }
+                            }
+                            .padding(10)
+                            .background(Color(.tertiarySystemGroupedBackground))
+                            .clipShape(.rect(cornerRadius: 8))
+                        }
+
+                        Button {
+                            Task { await testWebhook() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                switch webhookStatus {
+                                case .idle:
+                                    Image(systemName: "play.circle.fill")
+                                    Text("Test Connection")
+                                case .testing:
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text("Testing...")
+                                case .success:
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(AppTheme.savingsGreen)
+                                    Text("Connected")
+                                        .foregroundStyle(AppTheme.savingsGreen)
+                                case .failed(let msg):
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.red)
+                                    Text(msg)
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color(.tertiarySystemGroupedBackground))
+                            .clipShape(.rect(cornerRadius: 10))
+                        }
+                        .disabled(webhookStatus == .testing)
+                    }
+                } header: {
+                    Text("Guesty Webhook")
+                } footer: {
+                    Text("Add this URL to your Guesty dashboard under Webhooks to automatically receive new listings.")
+                }
+
                 Section("Data") {
                     HStack {
                         Label("Properties Cached", systemImage: "square.stack.3d.up.fill")
@@ -139,5 +241,17 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
         }
+    }
+
+    private func testWebhook() async {
+        webhookStatus = .testing
+        do {
+            let response = try await APIService.shared.testGuestyWebhook()
+            withAnimation { webhookStatus = response.status == "ok" ? .success : .failed("Unexpected response") }
+        } catch {
+            withAnimation { webhookStatus = .failed("Connection failed") }
+        }
+        try? await Task.sleep(for: .seconds(4))
+        withAnimation { webhookStatus = .idle }
     }
 }
