@@ -26,6 +26,7 @@ struct ContentView: View {
         .environment(viewModel)
         .onAppear {
             viewModel.loadPersistedData()
+            viewModel.loadAnalysisHistory()
         }
     }
 }

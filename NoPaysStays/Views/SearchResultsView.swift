@@ -13,6 +13,7 @@ struct SearchResultsView: View {
     @State private var currentBrowserLinkID: String?
     @State private var huntIndex: Int = 0
     @State private var isHunting: Bool = false
+    @State private var analysisTarget: AnalysisTarget?
 
     private var prioritizedResults: [PlatformSearch] {
         viewModel.searchResults.sorted { a, b in
@@ -91,6 +92,14 @@ struct SearchResultsView: View {
             }
             .sheet(isPresented: $showSaveSheet) {
                 saveFindsSheet
+            }
+            .sheet(item: $analysisTarget) { target in
+                PropertyAnalysisView(
+                    url: target.url,
+                    platformName: target.platformName,
+                    location: viewModel.currentCriteria.location,
+                    criteria: viewModel.currentCriteria
+                )
             }
             .fullScreenCover(item: $browserURL) { url in
                 SafariWebView(url: url) {
@@ -397,6 +406,14 @@ struct SearchResultsView: View {
                     hapticTrigger += 1
                 } label: {
                     Label("Copy URL", systemImage: "doc.on.doc")
+                }
+                Button {
+                    analysisTarget = AnalysisTarget(
+                        url: link.searchURL.absoluteString,
+                        platformName: link.platformName
+                    )
+                } label: {
+                    Label("AI Analysis", systemImage: "brain.head.profile.fill")
                 }
                 Divider()
                 if isChecked {

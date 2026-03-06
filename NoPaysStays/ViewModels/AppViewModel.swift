@@ -10,6 +10,8 @@ final class AppViewModel {
     var isSearching: Bool = false
     var hasSearched: Bool = false
     var checkedLinks: Set<String> = []
+    var analysisCache: [String: PropertyAnalysis] = [:]
+    var analysisHistory: [PropertyAnalysis] = []
 
     func performSearch() {
         guard !currentCriteria.location.isEmpty else { return }
@@ -90,6 +92,33 @@ final class AppViewModel {
     private func saveSavedFinds() {
         if let data = try? JSONEncoder().encode(savedFinds) {
             UserDefaults.standard.set(data, forKey: "savedFinds")
+        }
+    }
+
+    func cacheAnalysis(_ analysis: PropertyAnalysis) {
+        analysisCache[analysis.url] = analysis
+        if !analysisHistory.contains(where: { $0.url == analysis.url }) {
+            analysisHistory.insert(analysis, at: 0)
+            if analysisHistory.count > 30 {
+                analysisHistory = Array(analysisHistory.prefix(30))
+            }
+        }
+        saveAnalysisHistory()
+    }
+
+    func loadAnalysisHistory() {
+        if let data = UserDefaults.standard.data(forKey: "analysisHistory"),
+           let history = try? JSONDecoder().decode([PropertyAnalysis].self, from: data) {
+            analysisHistory = history
+            for item in history {
+                analysisCache[item.url] = item
+            }
+        }
+    }
+
+    private func saveAnalysisHistory() {
+        if let data = try? JSONEncoder().encode(analysisHistory) {
+            UserDefaults.standard.set(data, forKey: "analysisHistory")
         }
     }
 

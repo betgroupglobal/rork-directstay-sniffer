@@ -5,6 +5,7 @@ struct SavedFindsView: View {
     @State private var showAddSheet: Bool = false
     @State private var appeared: Bool = false
     @State private var browserURL: URL?
+    @State private var analysisTarget: AnalysisTarget?
 
     var body: some View {
         NavigationStack {
@@ -18,7 +19,7 @@ struct SavedFindsView: View {
                 } else {
                     List {
                         ForEach(Array(viewModel.savedFinds.enumerated()), id: \.element.id) { index, find in
-                            SavedFindRow(find: find, browserURL: $browserURL)
+                            SavedFindRow(find: find, browserURL: $browserURL, analysisTarget: $analysisTarget)
                                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                                 .opacity(appeared ? 1 : 0)
                                 .offset(y: appeared ? 0 : 15)
@@ -47,6 +48,14 @@ struct SavedFindsView: View {
             .sheet(isPresented: $showAddSheet) {
                 AddSavedFindView()
             }
+            .sheet(item: $analysisTarget) { target in
+                PropertyAnalysisView(
+                    url: target.url,
+                    platformName: target.platformName,
+                    location: "",
+                    criteria: nil
+                )
+            }
             .fullScreenCover(item: $browserURL) { url in
                 SafariWebView(url: url) {
                     browserURL = nil
@@ -60,6 +69,7 @@ struct SavedFindsView: View {
 struct SavedFindRow: View {
     let find: SavedFind
     @Binding var browserURL: URL?
+    @Binding var analysisTarget: AnalysisTarget?
 
     var body: some View {
         Button {
@@ -99,6 +109,36 @@ struct SavedFindRow: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                if let url = URL(string: find.url) {
+                    browserURL = url
+                }
+            } label: {
+                Label("Open In-App", systemImage: "safari")
+            }
+            Button {
+                if let url = URL(string: find.url) {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Label("Open in Safari", systemImage: "arrow.up.forward.app")
+            }
+            Divider()
+            Button {
+                analysisTarget = AnalysisTarget(
+                    url: find.url,
+                    platformName: find.platform
+                )
+            } label: {
+                Label("AI Analysis", systemImage: "brain.head.profile.fill")
+            }
+            Button {
+                UIPasteboard.general.url = URL(string: find.url)
+            } label: {
+                Label("Copy URL", systemImage: "doc.on.doc")
+            }
+        }
     }
 
     private func platformIcon(_ platform: String) -> String {
