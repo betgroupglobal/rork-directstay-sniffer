@@ -2,26 +2,21 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var viewModel = AppViewModel()
-    @State private var selectedTab: AppTab = .explore
+    @State private var selectedTab: AppTab = .search
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Explore", systemImage: "map.fill", value: .explore) {
-                ExploreView()
-            }
-
             Tab("Search", systemImage: "magnifyingglass", value: .search) {
                 SearchView()
             }
 
-            Tab("Favorites", systemImage: "heart.fill", value: .favorites) {
-                FavoritesView()
+            Tab("Saved", systemImage: "bookmark.fill", value: .saved) {
+                SavedFindsView()
             }
 
-            Tab("Alerts", systemImage: "bell.fill", value: .alerts) {
-                AlertsView()
+            Tab("History", systemImage: "clock.arrow.circlepath", value: .history) {
+                HistoryView()
             }
-            .badge(viewModel.unreadAlertCount)
 
             Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
                 SettingsView()
@@ -30,11 +25,11 @@ struct ContentView: View {
         .tint(AppTheme.burntOrange)
         .environment(viewModel)
         .onAppear {
-            viewModel.loadFavorites()
+            viewModel.loadPersistedData()
         }
     }
 }
 
 enum AppTab: Hashable {
-    case explore, search, favorites, alerts, settings
+    case search, saved, history, settings
 }

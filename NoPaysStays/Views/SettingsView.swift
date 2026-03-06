@@ -2,8 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var viewModel
-    @State private var notificationsEnabled: Bool = true
-    @State private var directOnlyAlerts: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -19,7 +17,7 @@ struct SettingsView: View {
                             .frame(width: 54, height: 54)
                             .clipShape(.rect(cornerRadius: 14))
 
-                            Image(systemName: "house.fill")
+                            Image(systemName: "binoculars.fill")
                                 .font(.title2)
                                 .foregroundStyle(.white)
                         }
@@ -27,7 +25,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("NoPays Stays")
                                 .font(.headline)
-                            Text("Skip the fees. Book direct.")
+                            Text("Deep search tool for direct bookings")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -36,99 +34,52 @@ struct SettingsView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 }
 
-                Section("Notifications") {
-                    Toggle(isOn: $notificationsEnabled) {
-                        Label("Push Notifications", systemImage: "bell.fill")
-                    }
-                    .tint(AppTheme.burntOrange)
-
-                    Toggle(isOn: $directOnlyAlerts) {
-                        Label("Direct Booking Alerts Only", systemImage: "checkmark.seal.fill")
-                    }
-                    .tint(AppTheme.savingsGreen)
-                }
-
-                Section("Saved Searches") {
-                    if viewModel.savedSearches.isEmpty {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 6) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.title3)
-                                    .foregroundStyle(.tertiary)
-                                Text("No saved searches")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 12)
-                            Spacer()
-                        }
-                    } else {
-                        ForEach(viewModel.savedSearches) { search in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(search.locationName)
-                                        .font(.subheadline.weight(.medium))
-                                    HStack(spacing: 8) {
-                                        Label("\(search.guests)", systemImage: "person.2.fill")
-                                        Label("\(Int(search.radiusKm))km", systemImage: "circle.dashed")
-                                        if search.isPetFriendly {
-                                            Image(systemName: "pawprint.fill")
-                                                .foregroundStyle(AppTheme.burntOrange)
-                                        }
-                                    }
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: search.notificationsEnabled ? "bell.fill" : "bell.slash")
-                                    .font(.caption)
-                                    .foregroundStyle(search.notificationsEnabled ? AppTheme.burntOrange : Color.gray.opacity(0.4))
-                            }
-                        }
-                        .onDelete { offsets in
-                            for index in offsets {
-                                viewModel.deleteSavedSearch(viewModel.savedSearches[index])
-                            }
-                        }
-                    }
-                }
-
-                Section("Data") {
+                Section("Search Stats") {
                     HStack {
-                        Label("Properties Cached", systemImage: "square.stack.3d.up.fill")
+                        Label("Searches Performed", systemImage: "magnifyingglass")
                         Spacer()
-                        Text("\(viewModel.properties.count)")
+                        Text("\(viewModel.searchHistory.count)")
                             .foregroundStyle(.secondary)
                     }
                     HStack {
-                        Label("Favorites", systemImage: "heart.fill")
+                        Label("Saved Finds", systemImage: "bookmark.fill")
                         Spacer()
-                        Text("\(viewModel.favoriteIDs.count)")
+                        Text("\(viewModel.savedFinds.count)")
                             .foregroundStyle(.secondary)
                     }
+                }
+
+                Section("How It Works") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        StepRow(number: 1, title: "Enter Criteria", description: "Location, dates, bedrooms, bathrooms, guests", icon: "pencil.circle.fill")
+                        StepRow(number: 2, title: "Launch Deep Search", description: "Generates targeted links across 20+ platforms", icon: "bolt.circle.fill")
+                        StepRow(number: 3, title: "Hunt & Compare", description: "Open links in Safari, find direct bookings", icon: "safari.fill")
+                        StepRow(number: 4, title: "Save Finds", description: "Bookmark the best deals for later", icon: "bookmark.circle.fill")
+                    }
+                    .listRowBackground(Color.clear)
+                }
+
+                Section("Platforms Searched") {
+                    PlatformGroupRow(title: "Alternative Platforms", count: "9", description: "Stayz, Vrbo, OwnerDirect, Youcamp, Riparide, Holidaypaws, Hometime, Holiday Houses, Fairbnb", color: AppTheme.burntOrange)
+                    PlatformGroupRow(title: "Classifieds", count: "4", description: "Gumtree, Facebook Marketplace, Domain Holiday, REA Holiday", color: AppTheme.amber)
+                    PlatformGroupRow(title: "Search Engines", count: "7", description: "Google deep queries, Bing, DuckDuckGo — excluding OTAs", color: AppTheme.coral)
+                    PlatformGroupRow(title: "Social & Forums", count: "3", description: "Facebook Groups, Reddit, Whirlpool", color: AppTheme.dustyPurple)
+                    PlatformGroupRow(title: "Tourism Directories", count: "5", description: "Visit NSW/VIC/QLD, WA Tourism, Local Councils", color: .blue)
+                    PlatformGroupRow(title: "Direct Booking", count: "2+", description: "Owner contacts, microsites, phone/email extraction", color: AppTheme.savingsGreen)
                 }
 
                 Section("About") {
                     HStack {
                         Label("Version", systemImage: "info.circle")
                         Spacer()
-                        Text("1.0.0")
+                        Text("2.0.0")
                             .foregroundStyle(.secondary)
-                    }
-
-                    Link(destination: URL(string: "https://nopaysstays.com.au")!) {
-                        Label("Website", systemImage: "globe")
-                    }
-
-                    Link(destination: URL(string: "mailto:support@nopaysstays.com.au")!) {
-                        Label("Contact Support", systemImage: "envelope.fill")
                     }
                 }
 
                 Section {
                     VStack(spacing: 4) {
-                        Text("NoPays Stays finds you the cheapest way to book holiday rentals by discovering direct-booking options hidden behind mainstream platforms.")
+                        Text("NoPays Stays generates deep search links to help you find holiday rentals outside the 15-20% OTA fee grinder. Every link opens in Safari — you do the hunting.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -138,6 +89,56 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+        }
+    }
+}
+
+struct StepRow: View {
+    let number: Int
+    let title: String
+    let description: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(AppTheme.burntOrange)
+                .frame(width: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(number). \(title)")
+                    .font(.subheadline.weight(.semibold))
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct PlatformGroupRow: View {
+    let title: String
+    let count: String
+    let description: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+                Text(count)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(color, in: Capsule())
+            }
+            Text(description)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }
