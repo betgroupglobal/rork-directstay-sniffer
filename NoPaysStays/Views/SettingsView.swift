@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @State private var notificationsEnabled: Bool = true
+    @State private var directOnlyAlerts: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -17,7 +19,7 @@ struct SettingsView: View {
                             .frame(width: 54, height: 54)
                             .clipShape(.rect(cornerRadius: 14))
 
-                            Image(systemName: "binoculars.fill")
+                            Image(systemName: "house.fill")
                                 .font(.title2)
                                 .foregroundStyle(.white)
                         }
@@ -25,7 +27,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("NoPays Stays")
                                 .font(.headline)
-                            Text("Automated direct booking hunter")
+                            Text("Skip the fees. Book direct.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -34,62 +36,76 @@ struct SettingsView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 }
 
-                Section("Search Stats") {
-                    HStack {
-                        Label("Hunts Completed", systemImage: "binoculars.fill")
-                        Spacer()
-                        Text("\(viewModel.searchHistory.count)")
-                            .foregroundStyle(.secondary)
+                Section("Notifications") {
+                    Toggle(isOn: $notificationsEnabled) {
+                        Label("Push Notifications", systemImage: "bell.fill")
                     }
-                    HStack {
-                        Label("Saved Finds", systemImage: "bookmark.fill")
-                        Spacer()
-                        Text("\(viewModel.savedFinds.count)")
-                            .foregroundStyle(.secondary)
+                    .tint(AppTheme.burntOrange)
+
+                    Toggle(isOn: $directOnlyAlerts) {
+                        Label("Direct Booking Alerts Only", systemImage: "checkmark.seal.fill")
                     }
+                    .tint(AppTheme.savingsGreen)
                 }
 
-                Section("How It Works") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        StepRow(number: 1, title: "Set Your Criteria", description: "Location, dates, bedrooms, bathrooms, guests", icon: "pencil.circle.fill")
-                        StepRow(number: 2, title: "Launch the Hunt", description: "App generates 30+ targeted search queries", icon: "bolt.circle.fill")
-                        StepRow(number: 3, title: "Auto-Hunt Mode", description: "Opens each source in-app — close to advance to next", icon: "binoculars.circle.fill")
-                        StepRow(number: 4, title: "Save Direct Finds", description: "Bookmark the best deals you discover", icon: "bookmark.circle.fill")
-                    }
-                    .listRowBackground(Color.clear)
-                }
-
-                Section("Platforms Searched") {
-                    PlatformGroupRow(title: "Direct Booking", count: "2+", description: "Owner contacts, microsites, phone/email extraction", color: AppTheme.savingsGreen)
-                    PlatformGroupRow(title: "Alternative Platforms", count: "9", description: "Stayz, Vrbo, OwnerDirect, Youcamp, Riparide, Holidaypaws, Hometime, Holiday Houses, Fairbnb", color: AppTheme.burntOrange)
-                    PlatformGroupRow(title: "Classifieds", count: "4", description: "Gumtree, Facebook Marketplace, Domain Holiday, REA Holiday", color: AppTheme.amber)
-                    PlatformGroupRow(title: "Search Engines", count: "7", description: "Google deep queries, Bing, DuckDuckGo — excluding OTAs", color: AppTheme.coral)
-                    PlatformGroupRow(title: "Social & Forums", count: "3", description: "Facebook Groups, Reddit, Whirlpool", color: AppTheme.dustyPurple)
-                    PlatformGroupRow(title: "Tourism Directories", count: "5", description: "Visit NSW/VIC/QLD, WA Tourism, Local Councils", color: .blue)
-                }
-
-                Section("Search API Status") {
-                    apiStatusRow("Google Custom Search", configured: !WebSearchAPIService.googleAPIKey.isEmpty && !WebSearchAPIService.googleCX.isEmpty)
-                    apiStatusRow("Bing Web Search", configured: !WebSearchAPIService.bingAPIKey.isEmpty)
-                    apiStatusRow("SerpAPI", configured: !WebSearchAPIService.serpAPIKey.isEmpty)
-                    apiStatusRow("Brave Search", configured: !WebSearchAPIService.braveAPIKey.isEmpty)
-
-                    if SearchAPIProvider.configuredProviders.isEmpty {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(AppTheme.warningAmber)
-                            Text("No search APIs configured. Spider will use HTML scraping as fallback (less reliable).")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                Section("Saved Searches") {
+                    if viewModel.savedSearches.isEmpty {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 6) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.title3)
+                                    .foregroundStyle(.tertiary)
+                                Text("No saved searches")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 12)
+                            Spacer()
                         }
                     } else {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(AppTheme.savingsGreen)
-                            Text("API-powered search active — structured results, no scraping timeouts.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        ForEach(viewModel.savedSearches) { search in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(search.locationName)
+                                        .font(.subheadline.weight(.medium))
+                                    HStack(spacing: 8) {
+                                        Label("\(search.guests)", systemImage: "person.2.fill")
+                                        Label("\(Int(search.radiusKm))km", systemImage: "circle.dashed")
+                                        if search.isPetFriendly {
+                                            Image(systemName: "pawprint.fill")
+                                                .foregroundStyle(AppTheme.burntOrange)
+                                        }
+                                    }
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: search.notificationsEnabled ? "bell.fill" : "bell.slash")
+                                    .font(.caption)
+                                    .foregroundStyle(search.notificationsEnabled ? AppTheme.burntOrange : Color.gray.opacity(0.4))
+                            }
                         }
+                        .onDelete { offsets in
+                            for index in offsets {
+                                viewModel.deleteSavedSearch(viewModel.savedSearches[index])
+                            }
+                        }
+                    }
+                }
+
+                Section("Data") {
+                    HStack {
+                        Label("Properties Cached", systemImage: "square.stack.3d.up.fill")
+                        Spacer()
+                        Text("\(viewModel.properties.count)")
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Label("Favorites", systemImage: "heart.fill")
+                        Spacer()
+                        Text("\(viewModel.favoriteIDs.count)")
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -97,14 +113,22 @@ struct SettingsView: View {
                     HStack {
                         Label("Version", systemImage: "info.circle")
                         Spacer()
-                        Text("3.0.0")
+                        Text("1.0.0")
                             .foregroundStyle(.secondary)
+                    }
+
+                    Link(destination: URL(string: "https://nopaysstays.com.au")!) {
+                        Label("Website", systemImage: "globe")
+                    }
+
+                    Link(destination: URL(string: "mailto:support@nopaysstays.com.au")!) {
+                        Label("Contact Support", systemImage: "envelope.fill")
                     }
                 }
 
                 Section {
                     VStack(spacing: 4) {
-                        Text("NoPays Stays automates the hunt for direct holiday bookings. Instead of manually searching 30+ platforms, the app does it for you — opening each source in-app so you can check, save, and move on.")
+                        Text("NoPays Stays finds you the cheapest way to book holiday rentals by discovering direct-booking options hidden behind mainstream platforms.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -114,67 +138,6 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-        }
-    }
-
-    private func apiStatusRow(_ name: String, configured: Bool) -> some View {
-        HStack {
-            Label(name, systemImage: configured ? "checkmark.circle.fill" : "xmark.circle")
-                .foregroundStyle(configured ? AppTheme.savingsGreen : .secondary)
-            Spacer()
-            Text(configured ? "Active" : "Not Set")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(configured ? AppTheme.savingsGreen : Color.secondary)
-        }
-    }
-}
-
-struct StepRow: View {
-    let number: Int
-    let title: String
-    let description: String
-    let icon: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(AppTheme.burntOrange)
-                .frame(width: 32)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(number). \(title)")
-                    .font(.subheadline.weight(.semibold))
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
-
-struct PlatformGroupRow: View {
-    let title: String
-    let count: String
-    let description: String
-    let color: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                Spacer()
-                Text(count)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(color, in: Capsule())
-            }
-            Text(description)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
     }
 }

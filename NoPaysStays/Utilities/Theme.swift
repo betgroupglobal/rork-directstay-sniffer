@@ -28,4 +28,11 @@ enum AppTheme {
         endPoint: .bottom
     )
 
+    static func pinColor(for strength: BookingStrength) -> Color {
+        switch strength {
+        case .direct: savingsGreen
+        case .alternative: warningAmber
+        case .mainstreamOnly: otaRed
+        }
+    }
 }

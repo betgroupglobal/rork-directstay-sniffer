@@ -7,18 +7,12 @@ struct SearchView: View {
     @State private var checkIn: Date = Date()
     @State private var checkOut: Date = Date().addingTimeInterval(86400 * 7)
     @State private var guests: Int = 2
-    @State private var bedrooms: Int = 1
-    @State private var bathrooms: Int = 1
     @State private var petFriendly: Bool = false
-    @State private var wholeHome: Bool = true
-    @State private var maxPrice: String = ""
-    @State private var radius: Int = 25
-    @State private var useDates: Bool = true
+    @State private var directOnly: Bool = false
+    @State private var selectedTypes: Set<PropertyType> = []
     @State private var searchCompleter = LocationSearchCompleter()
     @State private var showResults: Bool = false
-    @State private var showSpider: Bool = false
     @State private var animateGradient: Bool = false
-    @State private var hapticTrigger: Int = 0
 
     var body: some View {
         NavigationStack {
@@ -29,17 +23,10 @@ struct SearchView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("NoPays Stays")
+            .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
             .scrollDismissesKeyboard(.interactively)
-            .sheet(isPresented: $showResults) {
-                SearchResultsView()
-            }
-            .fullScreenCover(isPresented: $showSpider) {
-                SpiderResultsView(criteria: viewModel.currentCriteria)
-            }
         }
-        .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
     }
 
     private var meshGradientHeader: some View {
@@ -64,105 +51,74 @@ struct SearchView: View {
                 }
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Image(systemName: "binoculars.fill")
                     .font(.system(size: 36))
-                    .foregroundStyle(.white.opacity(0.95))
-                    .symbolEffect(.pulse, options: .repeating.speed(0.3))
+                    .foregroundStyle(.white.opacity(0.9))
 
-                Text("Find Direct Bookings")
-                    .font(.title2.weight(.bold))
+                Text("Find Your Perfect Stay")
+                    .font(.title.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Skip the 15-20% OTA fees — spider crawls\n\(searchLinkCount) sources automatically")
-                    .font(.caption)
+                Text("Skip the fees. Book direct.")
+                    .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.85))
-                    .multilineTextAlignment(.center)
             }
-            .padding(.top, 12)
-            .padding(.bottom, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 30)
         }
-        .frame(height: 175)
-    }
-
-    private var searchLinkCount: Int {
-        let test = SearchCriteria(location: "test", isPetFriendly: petFriendly)
-        return DeepSearchService.generateSearchLinks(for: test).count
+        .frame(height: 200)
     }
 
     private var searchForm: some View {
         VStack(spacing: 20) {
-            locationSection
-            dateSection
-            guestRoomSection
-            filtersSection
-            searchButton
-        }
-        .padding(20)
-    }
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Location", systemImage: "mappin.and.ellipse")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.burntOrange)
 
-    private var locationSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Where are you going?", systemImage: "mappin.and.ellipse")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.burntOrange)
+                TextField("Byron Bay, Noosa, Margaret River...", text: $locationQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: locationQuery) { _, newValue in
+                        searchCompleter.search(newValue)
+                    }
 
-            TextField("Byron Bay, Noosa, Margaret River...", text: $locationQuery)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.addressCity)
-                .onChange(of: locationQuery) { _, newValue in
-                    searchCompleter.search(newValue)
-                }
-
-            if !searchCompleter.results.isEmpty && !locationQuery.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(searchCompleter.results.prefix(5), id: \.self) { result in
-                        Button {
-                            locationQuery = [result.title, result.subtitle]
-                                .filter { !$0.isEmpty }
-                                .joined(separator: ", ")
-                            searchCompleter.results = []
-                        } label: {
-                            HStack {
-                                Image(systemName: "mappin.circle.fill")
-                                    .foregroundStyle(AppTheme.coral)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(result.title)
-                                        .font(.subheadline)
-                                    if !result.subtitle.isEmpty {
+                if !searchCompleter.results.isEmpty && !locationQuery.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(searchCompleter.results.prefix(5), id: \.self) { result in
+                            Button {
+                                locationQuery = result.title
+                                searchCompleter.results = []
+                            } label: {
+                                HStack {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .foregroundStyle(AppTheme.coral)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(result.title)
+                                            .font(.subheadline)
                                         Text(result.subtitle)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
+                                    Spacer()
                                 }
-                                Spacer()
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
                             }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
+                            .buttonStyle(.plain)
+                            Divider()
                         }
-                        .buttonStyle(.plain)
-                        Divider()
                     }
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(.rect(cornerRadius: 10))
                 }
-                .background(Color(.secondarySystemGroupedBackground))
-                .clipShape(.rect(cornerRadius: 10))
             }
-        }
-    }
 
-    private var dateSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            VStack(alignment: .leading, spacing: 8) {
                 Label("Dates", systemImage: "calendar")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.burntOrange)
-                Spacer()
-                Toggle("", isOn: $useDates)
-                    .labelsHidden()
-                    .tint(AppTheme.burntOrange)
-            }
 
-            if useDates {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Check In")
@@ -179,164 +135,148 @@ struct SearchView: View {
                             .labelsHidden()
                     }
                 }
-            } else {
-                Text("Flexible dates — platforms will show all availability")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
             }
-        }
-    }
 
-    private var guestRoomSection: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Guests", systemImage: "person.2.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.burntOrange)
-                    Stepper("\(guests)", value: $guests, in: 1...20)
-                        .padding(10)
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .clipShape(.rect(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Guests", systemImage: "person.2")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.burntOrange)
+
+                Stepper("\(guests) Guest\(guests == 1 ? "" : "s")", value: $guests, in: 1...20)
+                    .padding(12)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(.rect(cornerRadius: 10))
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Filters", systemImage: "slider.horizontal.3")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.burntOrange)
+
+                Toggle(isOn: $petFriendly) {
+                    Label("Pet Friendly", systemImage: "pawprint.fill")
                 }
+                .tint(AppTheme.burntOrange)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Bedrooms", systemImage: "bed.double.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.burntOrange)
-                    Stepper("\(bedrooms)", value: $bedrooms, in: 1...10)
-                        .padding(10)
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .clipShape(.rect(cornerRadius: 10))
+                Toggle(isOn: $directOnly) {
+                    Label("Direct Booking Only", systemImage: "checkmark.seal.fill")
                 }
+                .tint(AppTheme.savingsGreen)
             }
+            .padding(16)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(.rect(cornerRadius: 12))
 
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Bathrooms", systemImage: "shower.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.burntOrange)
-                    Stepper("\(bathrooms)", value: $bathrooms, in: 1...10)
-                        .padding(10)
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .clipShape(.rect(cornerRadius: 10))
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Property Type")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.burntOrange)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Radius", systemImage: "circle.dashed")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppTheme.burntOrange)
-                    Stepper("\(radius)km", value: $radius, in: 5...200, step: 5)
-                        .padding(10)
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .clipShape(.rect(cornerRadius: 10))
-                }
-            }
-        }
-    }
-
-    private var filtersSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Filters", systemImage: "slider.horizontal.3")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppTheme.burntOrange)
-
-            Toggle(isOn: $petFriendly) {
-                Label("Pet Friendly", systemImage: "pawprint.fill")
-            }
-            .tint(AppTheme.burntOrange)
-
-            Toggle(isOn: $wholeHome) {
-                Label("Whole Home Only", systemImage: "house.fill")
-            }
-            .tint(AppTheme.burntOrange)
-
-            HStack {
-                Label("Max Price/Night", systemImage: "dollarsign.circle.fill")
-                    .font(.subheadline)
-                Spacer()
-                TextField("Any", text: $maxPrice)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 80)
-                    .textFieldStyle(.roundedBorder)
-            }
-        }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(.rect(cornerRadius: 12))
-    }
-
-    private func buildCriteria() -> SearchCriteria {
-        SearchCriteria(
-            location: locationQuery,
-            checkIn: useDates ? checkIn : nil,
-            checkOut: useDates ? checkOut : nil,
-            guests: guests,
-            bedrooms: bedrooms,
-            bathrooms: bathrooms,
-            isPetFriendly: petFriendly,
-            isWholeHome: wholeHome,
-            maxPricePerNight: Int(maxPrice),
-            radiusKm: radius
-        )
-    }
-
-    private var searchButton: some View {
-        VStack(spacing: 10) {
-            Button {
-                hapticTrigger += 1
-                viewModel.currentCriteria = buildCriteria()
-                viewModel.performSearch()
-                showSpider = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "ant.fill")
-                        .font(.headline)
-                    VStack(spacing: 2) {
-                        Text("Spider Hunt")
-                            .font(.headline)
-                        Text("Auto-crawl \(searchLinkCount) sources in background")
-                            .font(.caption2)
-                            .opacity(0.85)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(PropertyType.allCases, id: \.self) { type in
+                        Button {
+                            if selectedTypes.contains(type) {
+                                selectedTypes.remove(type)
+                            } else {
+                                selectedTypes.insert(type)
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: type.icon)
+                                    .font(.caption2)
+                                Text(type.label)
+                                    .font(.caption.weight(.medium))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(selectedTypes.contains(type) ? AppTheme.burntOrange : Color(.tertiarySystemGroupedBackground))
+                            .foregroundStyle(selectedTypes.contains(type) ? .white : .primary)
+                            .clipShape(Capsule())
+                        }
                     }
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(colors: [AppTheme.coral, AppTheme.burntOrange], startPoint: .leading, endPoint: .trailing),
-                    in: .rect(cornerRadius: 14)
-                )
             }
-            .disabled(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .opacity(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
 
             Button {
-                hapticTrigger += 1
-                viewModel.currentCriteria = buildCriteria()
-                viewModel.performSearch()
+                viewModel.filterPetFriendly = petFriendly
+                viewModel.filterDirectOnly = directOnly
+                viewModel.filterMinGuests = guests
+                viewModel.filterPropertyTypes = selectedTypes
+                if !locationQuery.isEmpty {
+                    viewModel.searchText = locationQuery
+                }
                 showResults = true
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "list.bullet.rectangle")
-                        .font(.subheadline)
-                    Text("Manual Hunt")
-                        .font(.subheadline.weight(.semibold))
-                    Text("browse links yourself")
-                        .font(.caption2)
-                        .opacity(0.7)
-                }
-                .foregroundStyle(AppTheme.coral)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(AppTheme.coral.opacity(0.1), in: .rect(cornerRadius: 12))
+                Label("Search Properties", systemImage: "magnifyingglass")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(colors: [AppTheme.coral, AppTheme.burntOrange], startPoint: .leading, endPoint: .trailing),
+                        in: .rect(cornerRadius: 14)
+                    )
             }
-            .disabled(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            .opacity(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+            .padding(.top, 4)
         }
-        .padding(.top, 4)
+        .padding(20)
+        .sheet(isPresented: $showResults) {
+            SearchResultsView()
+        }
+    }
+}
+
+struct SearchResultsView: View {
+    @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedProperty: Property?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("\(viewModel.filteredProperties.count) properties found")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+
+                    ForEach(viewModel.filteredProperties) { property in
+                        Button {
+                            selectedProperty = property
+                        } label: {
+                            PropertyCardView(
+                                property: property,
+                                isFavorite: viewModel.isFavorite(property),
+                                onFavorite: { viewModel.toggleFavorite(property) }
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if viewModel.filteredProperties.isEmpty {
+                        ContentUnavailableView(
+                            "No Results",
+                            systemImage: "magnifyingglass",
+                            description: Text("No properties match your criteria")
+                        )
+                        .padding(.top, 40)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Results")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .sheet(item: $selectedProperty) { property in
+                PropertyDetailView(property: property)
+            }
+        }
     }
 }
 

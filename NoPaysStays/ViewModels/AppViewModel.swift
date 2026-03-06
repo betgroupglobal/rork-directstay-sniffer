@@ -3,130 +3,93 @@ import MapKit
 
 @Observable
 final class AppViewModel {
-    var currentCriteria: SearchCriteria = SearchCriteria()
-    var searchResults: [PlatformSearch] = []
-    var searchHistory: [SearchCriteria] = []
-    var savedFinds: [SavedFind] = []
-    var isSearching: Bool = false
-    var hasSearched: Bool = false
-    var checkedLinks: Set<String> = []
-    var analysisCache: [String: PropertyAnalysis] = [:]
-    var analysisHistory: [PropertyAnalysis] = []
-    var showSpiderResults: Bool = false
-    var spiderCriteria: SearchCriteria?
+    var properties: [Property] = MockDataService.properties
+    var favoriteIDs: Set<String> = []
+    var savedSearches: [SavedSearch] = MockDataService.savedSearches
+    var alerts: [PropertyAlert] = MockDataService.alerts
+    var selectedProperty: Property?
+    var searchText: String = ""
+    var isLoading: Bool = false
 
-    func performSearch() {
-        guard !currentCriteria.location.isEmpty else { return }
-        isSearching = true
-        searchResults = DeepSearchService.generateSearchLinks(for: currentCriteria)
-        checkedLinks.removeAll()
+    var filterPetFriendly: Bool = false
+    var filterDirectOnly: Bool = false
+    var filterMinGuests: Int = 1
+    var filterPropertyTypes: Set<PropertyType> = []
 
-        if !searchHistory.contains(where: {
-            $0.location == currentCriteria.location &&
-            $0.bedrooms == currentCriteria.bedrooms &&
-            $0.guests == currentCriteria.guests
-        }) {
-            searchHistory.insert(currentCriteria, at: 0)
-            if searchHistory.count > 50 {
-                searchHistory = Array(searchHistory.prefix(50))
+    var filteredProperties: [Property] {
+        properties.filter { property in
+            if filterPetFriendly && !property.isPetFriendly { return false }
+            if filterDirectOnly && property.bookingStrength == .mainstreamOnly { return false }
+            if property.maxGuests < filterMinGuests { return false }
+            if !filterPropertyTypes.isEmpty && !filterPropertyTypes.contains(property.propertyType) { return false }
+            if !searchText.isEmpty {
+                let query = searchText.lowercased()
+                let matchesLocation = property.suburb.lowercased().contains(query)
+                    || property.state.lowercased().contains(query)
+                    || property.postcode.contains(query)
+                    || property.title.lowercased().contains(query)
+                if !matchesLocation { return false }
             }
-            saveHistory()
-        }
-
-        hasSearched = true
-        isSearching = false
-    }
-
-    func rerunSearch(_ criteria: SearchCriteria) {
-        currentCriteria = criteria
-        performSearch()
-    }
-
-    func markLinkChecked(_ id: String) {
-        checkedLinks.insert(id)
-    }
-
-    func unmarkLinkChecked(_ id: String) {
-        checkedLinks.remove(id)
-    }
-
-    func clearCheckedLinks() {
-        checkedLinks.removeAll()
-    }
-
-    func clearHistory() {
-        searchHistory.removeAll()
-        saveHistory()
-    }
-
-    func deleteHistoryItem(_ criteria: SearchCriteria) {
-        searchHistory.removeAll { $0.id == criteria.id }
-        saveHistory()
-    }
-
-    func addSavedFind(_ find: SavedFind) {
-        savedFinds.insert(find, at: 0)
-        saveSavedFinds()
-    }
-
-    func deleteSavedFind(_ find: SavedFind) {
-        savedFinds.removeAll { $0.id == find.id }
-        saveSavedFinds()
-    }
-
-    func loadPersistedData() {
-        if let data = UserDefaults.standard.data(forKey: "searchHistory"),
-           let history = try? JSONDecoder().decode([SearchCriteria].self, from: data) {
-            searchHistory = history
-        }
-        if let data = UserDefaults.standard.data(forKey: "savedFinds"),
-           let finds = try? JSONDecoder().decode([SavedFind].self, from: data) {
-            savedFinds = finds
+            return true
         }
     }
 
-    private func saveHistory() {
-        if let data = try? JSONEncoder().encode(searchHistory) {
-            UserDefaults.standard.set(data, forKey: "searchHistory")
+    var unreadAlertCount: Int {
+        alerts.filter { !$0.isRead }.count
+    }
+
+    func isFavorite(_ property: Property) -> Bool {
+        favoriteIDs.contains(property.id)
+    }
+
+    func toggleFavorite(_ property: Property) {
+        if favoriteIDs.contains(property.id) {
+            favoriteIDs.remove(property.id)
+        } else {
+            favoriteIDs.insert(property.id)
+        }
+        saveFavorites()
+    }
+
+    var favoriteProperties: [Property] {
+        properties.filter { favoriteIDs.contains($0.id) }
+    }
+
+    func markAlertRead(_ alert: PropertyAlert) {
+        guard let index = alerts.firstIndex(where: { $0.id == alert.id }) else { return }
+        alerts[index].isRead = true
+    }
+
+    func markAllAlertsRead() {
+        for index in alerts.indices {
+            alerts[index].isRead = true
         }
     }
 
-    private func saveSavedFinds() {
-        if let data = try? JSONEncoder().encode(savedFinds) {
-            UserDefaults.standard.set(data, forKey: "savedFinds")
+    func deleteSavedSearch(_ search: SavedSearch) {
+        savedSearches.removeAll { $0.id == search.id }
+    }
+
+    func addSavedSearch(_ search: SavedSearch) {
+        savedSearches.append(search)
+    }
+
+    func clearFilters() {
+        filterPetFriendly = false
+        filterDirectOnly = false
+        filterMinGuests = 1
+        filterPropertyTypes = []
+    }
+
+    private func saveFavorites() {
+        if let data = try? JSONEncoder().encode(Array(favoriteIDs)) {
+            UserDefaults.standard.set(data, forKey: "favoriteIDs")
         }
     }
 
-    func cacheAnalysis(_ analysis: PropertyAnalysis) {
-        analysisCache[analysis.url] = analysis
-        if !analysisHistory.contains(where: { $0.url == analysis.url }) {
-            analysisHistory.insert(analysis, at: 0)
-            if analysisHistory.count > 30 {
-                analysisHistory = Array(analysisHistory.prefix(30))
-            }
-        }
-        saveAnalysisHistory()
-    }
-
-    func loadAnalysisHistory() {
-        if let data = UserDefaults.standard.data(forKey: "analysisHistory"),
-           let history = try? JSONDecoder().decode([PropertyAnalysis].self, from: data) {
-            analysisHistory = history
-            for item in history {
-                analysisCache[item.url] = item
-            }
-        }
-    }
-
-    private func saveAnalysisHistory() {
-        if let data = try? JSONEncoder().encode(analysisHistory) {
-            UserDefaults.standard.set(data, forKey: "analysisHistory")
-        }
-    }
-
-    var resultsByCategory: [(PlatformCategory, [PlatformSearch])] {
-        let grouped = Dictionary(grouping: searchResults) { $0.category }
-        return grouped.sorted { $0.key.sortOrder < $1.key.sortOrder }
-            .map { ($0.key, $0.value) }
+    func loadFavorites() {
+        guard let data = UserDefaults.standard.data(forKey: "favoriteIDs"),
+              let ids = try? JSONDecoder().decode([String].self, from: data) else { return }
+        favoriteIDs = Set(ids)
     }
 }

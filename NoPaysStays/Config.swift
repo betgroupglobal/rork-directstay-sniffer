@@ -8,6 +8,7 @@
 import Foundation
 
 enum Config {
-    static let EXPO_PUBLIC_TOOLKIT_URL = ""
-    static let MERCURY_API_KEY = ""
+    // Environment variables will be injected here at build time
+    // Add your ENV in Project Settings → Environment Variables
+    // Then use Config.YOUR_ENV_NAME in code
 }
