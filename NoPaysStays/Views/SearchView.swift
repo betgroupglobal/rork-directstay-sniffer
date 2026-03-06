@@ -284,14 +284,38 @@ struct SearchResultsView: View {
     private var resultsContent: some View {
         ScrollView {
             VStack(spacing: 12) {
+                if !viewModel.airbnbResults.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "house.fill")
+                            .foregroundStyle(AppTheme.coral)
+                        Text("\(viewModel.airbnbResults.count) Airbnb Listings")
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        Text("Tap to find direct")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.bottom, 4)
+
+                    ForEach(viewModel.airbnbResults) { property in
+                        Button {
+                            selectedProperty = property
+                        } label: {
+                            AirbnbResultCard(property: property)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 if !viewModel.searchResults.isEmpty {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "antenna.radiowaves.left.and.right")
                             .foregroundStyle(AppTheme.savingsGreen)
-                        Text("\(viewModel.searchResults.count) direct stays found")
+                        Text("\(viewModel.searchResults.count) Direct Stays Found")
                             .font(.subheadline.weight(.medium))
                         Spacer()
                     }
+                    .padding(.top, viewModel.airbnbResults.isEmpty ? 0 : 8)
                     .padding(.bottom, 4)
 
                     ForEach(viewModel.searchResults) { property in
@@ -305,7 +329,7 @@ struct SearchResultsView: View {
                 }
 
                 if !viewModel.filteredProperties.isEmpty {
-                    if !viewModel.searchResults.isEmpty {
+                    if !viewModel.searchResults.isEmpty || !viewModel.airbnbResults.isEmpty {
                         HStack {
                             Text("Local Results")
                                 .font(.subheadline.weight(.semibold))
@@ -329,7 +353,7 @@ struct SearchResultsView: View {
                     }
                 }
 
-                if viewModel.searchResults.isEmpty && viewModel.filteredProperties.isEmpty {
+                if viewModel.searchResults.isEmpty && viewModel.airbnbResults.isEmpty && viewModel.filteredProperties.isEmpty {
                     ContentUnavailableView(
                         "No Results",
                         systemImage: "magnifyingglass",
@@ -397,6 +421,97 @@ struct CrawlResultCard: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(.rect(cornerRadius: 14))
+    }
+}
+
+struct AirbnbResultCard: View {
+    let property: Property
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if let imageURL = property.imageURLs.first, let url = URL(string: imageURL) {
+                Color(.secondarySystemBackground)
+                    .frame(width: 72, height: 72)
+                    .overlay {
+                        AsyncImage(url: url) { phase in
+                            if let image = phase.image {
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } else if phase.error != nil {
+                                Image(systemName: "photo")
+                                    .foregroundStyle(.tertiary)
+                            } else {
+                                ProgressView()
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
+                    .clipShape(.rect(cornerRadius: 10))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(AppTheme.coral.opacity(0.1))
+                        .frame(width: 72, height: 72)
+                    Image(systemName: "house.fill")
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.coral)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(property.title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                if !property.subtitle.isEmpty {
+                    Text(property.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 6) {
+                    if property.bedrooms > 0 {
+                        Label("\(property.bedrooms)", systemImage: "bed.double.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if property.maxGuests > 0 {
+                        Label("\(property.maxGuests)", systemImage: "person.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                HStack(spacing: 6) {
+                    if property.otaPrice > 0 {
+                        Text("$\(Int(property.otaPrice))/night")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.burntOrange)
+                    }
+
+                    Text("AIRBNB")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(AppTheme.coral, in: Capsule())
+
+                    Spacer()
+
+                    Text("Find Direct")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(AppTheme.savingsGreen)
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.savingsGreen)
                 }
             }
         }

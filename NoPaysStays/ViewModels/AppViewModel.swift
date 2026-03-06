@@ -5,6 +5,7 @@ import MapKit
 final class AppViewModel {
     var properties: [Property] = MockDataService.properties
     var searchResults: [Property] = []
+    var airbnbResults: [Property] = []
     var favoriteIDs: Set<String> = []
     var savedSearches: [SavedSearch] = MockDataService.savedSearches
     var alerts: [PropertyAlert] = MockDataService.alerts
@@ -94,26 +95,57 @@ final class AppViewModel {
         isLoading = true
         errorMessage = nil
         hasSearched = true
+        searchResults = []
+        airbnbResults = []
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
 
-        let request = CrawlRequest(
+        let checkInStr = checkIn.map { formatter.string(from: $0) }
+        let checkOutStr = checkOut.map { formatter.string(from: $0) }
+
+        let crawlRequest = CrawlRequest(
             location: location,
-            check_in: checkIn.map { formatter.string(from: $0) },
-            check_out: checkOut.map { formatter.string(from: $0) },
+            check_in: checkInStr,
+            check_out: checkOutStr,
             guests: guests,
             pet_friendly: petFriendly == true ? true : nil,
             max_results: 30
         )
 
-        do {
-            let results = try await APIService.shared.crawlToProperties(request)
-            searchResults = results
-            properties = MockDataService.properties + results
-        } catch {
-            errorMessage = error.localizedDescription
-            searchResults = []
+        let airbnbRequest = AirbnbSearchRequest(
+            location: location,
+            check_in: checkInStr,
+            check_out: checkOutStr,
+            guests: guests,
+            pet_friendly: petFriendly == true ? true : nil,
+            max_results: 30
+        )
+
+        async let crawlTask: [Property] = {
+            do {
+                return try await APIService.shared.crawlToProperties(crawlRequest)
+            } catch {
+                return []
+            }
+        }()
+
+        async let airbnbTask: [Property] = {
+            do {
+                return try await APIService.shared.airbnbToProperties(airbnbRequest)
+            } catch {
+                return []
+            }
+        }()
+
+        let (crawlResults, airbnbListings) = await (crawlTask, airbnbTask)
+
+        searchResults = crawlResults
+        airbnbResults = airbnbListings
+        properties = MockDataService.properties + crawlResults + airbnbListings
+
+        if crawlResults.isEmpty && airbnbListings.isEmpty {
+            errorMessage = "No results found. Try a different location or broader search."
         }
 
         isLoading = false

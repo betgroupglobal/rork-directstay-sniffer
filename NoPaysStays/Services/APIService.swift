@@ -168,6 +168,43 @@ actor APIService {
         return allHits.sorted { $0.score > $1.score }
     }
 
+    func searchAirbnb(_ request: AirbnbSearchRequest) async throws -> AirbnbSearchResponse {
+        guard let url = URL(string: "\(baseURL)/api/v1/airbnb/search") else {
+            throw APIError.invalidURL
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.timeoutInterval = 45
+
+        let encoder = JSONEncoder()
+        urlRequest.httpBody = try encoder.encode(request)
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+
+        do {
+            return try decoder.decode(AirbnbSearchResponse.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
+    }
+
+    func airbnbToProperties(_ request: AirbnbSearchRequest) async throws -> [Property] {
+        let response = try await searchAirbnb(request)
+        return response.results.compactMap { listing in
+            Property.fromAirbnbListing(listing)
+        }
+    }
+
     var webhookURL: String {
         "\(baseURL)/api/v1/webhooks/guesty"
     }

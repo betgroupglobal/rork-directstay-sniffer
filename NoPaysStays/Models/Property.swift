@@ -146,6 +146,65 @@ nonisolated struct Property: Codable, Identifiable, Sendable, Hashable {
         )
     }
 
+    static func fromAirbnbListing(_ listing: AirbnbListing) -> Property? {
+        guard let url = listing.url, !url.isEmpty else { return nil }
+        let name = listing.name ?? "Airbnb Listing"
+        let pricePerNight = listing.price_per_night ?? 0
+
+        let airbnbLink = BookingLink(
+            id: UUID().uuidString,
+            platform: "Airbnb",
+            url: url,
+            pricePerNight: pricePerNight,
+            totalPrice: listing.total_price ?? 0,
+            isDirectBooking: false,
+            feesIncluded: true
+        )
+
+        let city = listing.city ?? ""
+        let roomType = listing.room_type ?? "Entire home"
+        let bedroomCount = listing.bedrooms ?? 0
+        let bathroomCount = Int(listing.bathrooms ?? 0)
+        let guestCount = listing.guests ?? 2
+        let ratingStr = listing.rating.map { String(format: "%.1f", $0) } ?? ""
+        let reviewStr = listing.reviews_count.map { "(\($0) reviews)" } ?? ""
+        let subtitle = [roomType, ratingStr.isEmpty ? nil : "\(ratingStr) ★ \(reviewStr)"].compactMap { $0 }.joined(separator: " · ")
+
+        let propType: PropertyType = {
+            let rt = roomType.lowercased()
+            if rt.contains("cabin") { return .cabin }
+            if rt.contains("apartment") || rt.contains("condo") { return .apartment }
+            if rt.contains("farm") { return .farmStay }
+            if rt.contains("glamp") || rt.contains("tent") { return .glamping }
+            return .house
+        }()
+
+        return Property(
+            id: "airbnb-\(listing.listingID)",
+            title: name,
+            subtitle: subtitle,
+            address: "",
+            suburb: city,
+            state: "",
+            postcode: "",
+            latitude: listing.lat ?? 0,
+            longitude: listing.lng ?? 0,
+            propertyType: propType,
+            bedrooms: bedroomCount,
+            bathrooms: bathroomCount,
+            maxGuests: guestCount,
+            isPetFriendly: false,
+            amenities: listing.amenities ?? [],
+            imageURLs: listing.images ?? [],
+            bookingLinks: [airbnbLink],
+            ownerContact: nil,
+            bookingStrength: .mainstreamOnly,
+            otaPrice: pricePerNight,
+            bestAlternativePrice: nil,
+            discoveredAt: Date()
+        )
+    }
+
     var displayPrice: Double {
         bestAlternativePrice ?? otaPrice
     }
