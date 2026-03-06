@@ -42,3 +42,8 @@ Update `{@artifacts_path}/plan.md`.
 - Reconciled local/remote divergence constraints in worktree setup.
 - Merged `backend-build-6545` into a branch based on `origin/main`.
 - Pushed merge result to `origin/main` and verified ancestry.
+
+### [x] Step: Launch crawl backend on Vercel and provide API base URL
+- Added Vercel function adapter and routing for `/health`, `/api/v1/crawl`, and `/api/v1/webhooks/guesty`.
+- Fixed serverless runtime write-path issue by setting crawler DB path to `/tmp/crawler.db` before backend import.
+- Deployed successfully and validated health + crawl endpoints on production alias.
