@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from stays_crawler.extract import compute_relevance, extract_links, is_direct_property_url, normalize_url, tokenize
 from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import BookingHit, CrawlRequest, CrawlResponse, SeedHit
+from stays_crawler.sources.airbnb_api import AirbnbApiSource
 from stays_crawler.sources.base import SearchSource
 from stays_crawler.sources.forums import ForumTemplateSource
 from stays_crawler.sources.guesty import GuestySource
@@ -26,6 +27,8 @@ class StaysCrawler:
         guesty_client_id: str | None = None,
         guesty_client_secret: str | None = None,
         guesty_api_base: str = "https://open-api.guesty.com",
+        airbnb_api_base: str | None = None,
+        airbnb_api_key: str | None = None,
     ) -> None:
         self.fetcher = fetcher
         self.default_depth = max(0, default_depth)
@@ -35,6 +38,8 @@ class StaysCrawler:
         self.guesty_client_id = guesty_client_id
         self.guesty_client_secret = guesty_client_secret
         self.guesty_api_base = guesty_api_base
+        self.airbnb_api_base = airbnb_api_base
+        self.airbnb_api_key = airbnb_api_key
 
     def crawl(self, request: CrawlRequest) -> CrawlResponse:
         depth_limit = self.default_depth if request.crawl_depth is None else max(0, request.crawl_depth)
@@ -116,6 +121,7 @@ class StaysCrawler:
     def _build_sources(self) -> list[SearchSource]:
         return [
             DuckDuckGoSource(self.fetcher),
+            AirbnbApiSource(api_base=self.airbnb_api_base, api_key=self.airbnb_api_key),
             ProviderSeedSource(),
             GuestySource(
                 store=self.store,

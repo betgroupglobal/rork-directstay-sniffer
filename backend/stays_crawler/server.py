@@ -28,6 +28,8 @@ def build_crawler() -> StaysCrawler:
     guesty_client_id = os.getenv("GUESTY_CLIENT_ID")
     guesty_client_secret = os.getenv("GUESTY_CLIENT_SECRET")
     guesty_api_base = os.getenv("GUESTY_API_BASE", "https://open-api.guesty.com")
+    airbnb_api_base = os.getenv("AIRBNB_API_BASE")
+    airbnb_api_key = os.getenv("AIRBNB_API_KEY")
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     fetcher = HttpFetcher(
         user_agent=ua,
@@ -47,6 +49,8 @@ def build_crawler() -> StaysCrawler:
         guesty_client_id=guesty_client_id,
         guesty_client_secret=guesty_client_secret,
         guesty_api_base=guesty_api_base,
+        airbnb_api_base=airbnb_api_base,
+        airbnb_api_key=airbnb_api_key,
     )
 
 

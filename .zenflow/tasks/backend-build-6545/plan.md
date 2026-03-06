@@ -47,3 +47,8 @@ Update `{@artifacts_path}/plan.md`.
 - Added Vercel function adapter and routing for `/health`, `/api/v1/crawl`, and `/api/v1/webhooks/guesty`.
 - Fixed serverless runtime write-path issue by setting crawler DB path to `/tmp/crawler.db` before backend import.
 - Deployed successfully and validated health + crawl endpoints on production alias.
+
+### [x] Step: Add Airbnb API source integration
+- Added a new `AirbnbApiSource` and wired it into crawler source discovery.
+- Plumbed `AIRBNB_API_BASE` and `AIRBNB_API_KEY` into crawler construction.
+- Added unit tests for Airbnb API mapping/filtering and verified backend test suite passes.
