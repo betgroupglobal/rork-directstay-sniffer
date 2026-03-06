@@ -73,6 +73,25 @@ class TestCrawler(unittest.TestCase):
             self.assertEqual(first.total, second.total)
             self.assertEqual(fetcher.calls, 1)
 
+    def test_does_not_return_search_results_pages(self):
+        pages = {
+            "https://example.com/search": '<html><a href="https://airbnb.com/s/Byron+Bay/homes">Homes</a><a href="https://airbnb.com/rooms/123456">Room</a></html>'
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "crawler.db")
+            crawler = StaysCrawler(
+                fetcher=FakeFetcher(pages),
+                default_depth=1,
+                default_pages_per_source=5,
+                store=CrawlStore(db_path),
+                cache_ttl_seconds=600,
+            )
+            crawler._build_sources = lambda: [FakeSource("https://example.com/search")]
+            req = CrawlRequest(location="Byron Bay", max_results=10)
+            result = crawler.crawl(req)
+            self.assertEqual(result.total, 1)
+            self.assertEqual(result.results[0].booking_url, "https://airbnb.com/rooms/123456")
+
 
 if __name__ == "__main__":
     unittest.main()

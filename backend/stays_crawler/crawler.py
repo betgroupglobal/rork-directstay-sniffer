@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from urllib.parse import urlparse
 
-from stays_crawler.extract import compute_relevance, extract_links, is_likely_booking_url, normalize_url, tokenize
+from stays_crawler.extract import compute_relevance, extract_links, is_direct_property_url, normalize_url, tokenize
 from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import BookingHit, CrawlRequest, CrawlResponse, SeedHit
 from stays_crawler.sources.base import SearchSource
@@ -72,7 +72,7 @@ class StaysCrawler:
         title = item.title or ""
         outputs: list[BookingHit] = []
         score, matched = compute_relevance(title, snippet, query_terms, current_url)
-        if is_likely_booking_url(current_url, title) and score > 0:
+        if is_direct_property_url(current_url) and score > 0:
             outputs.append(
                 BookingHit(
                     booking_url=current_url,
@@ -88,7 +88,7 @@ class StaysCrawler:
         queued_links: list[tuple[str, str, str]] = []
         for link, anchor_text in links:
             link_score, link_matched = compute_relevance(anchor_text, snippet[:240], query_terms, link)
-            if is_likely_booking_url(link, anchor_text) and link_score > 0:
+            if is_direct_property_url(link) and link_score > 0:
                 outputs.append(
                     BookingHit(
                         booking_url=link,
