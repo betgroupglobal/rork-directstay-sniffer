@@ -58,3 +58,12 @@ Update `{@artifacts_path}/plan.md`.
 - Added dedicated endpoint `/api/v1/airbnb/search` in both local server and Vercel Flask adapter.
 - Added env support: `AIRBNB_PROVIDER`, `AIRBNB_API_KEY` (or `SEARCHAPI_API_KEY` / `AIRROI_API_KEY` fallback).
 - Removed old source file, updated tests, redeployed, and verified `/api/v1/airbnb/search` returns 200.
+
+### [x] Step: Build browser version of the app
+- Created a standalone web UI in `web/` with search form, mode switch (crawl/airbnb), and clickable result cards.
+- Wired browser requests to deployed backend endpoints (`/api/v1/crawl` and `/api/v1/airbnb/search`).
+- Verified JavaScript syntax and smoke-tested backend endpoints used by the browser app.
+
+### [x] Step: Launch browser app on Vercel
+- Deployed `web/` as a standalone Vercel project.
+- Confirmed production alias is live and serving the browser UI.

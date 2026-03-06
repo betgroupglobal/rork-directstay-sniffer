@@ -1,0 +1,145 @@
+:root {
+  --ink: #1c1a22;
+  --paper: #fff8f1;
+  --panel: #fffefb;
+  --line: #ead8c7;
+  --accent: #d24d2f;
+  --accent-2: #ff9a3c;
+  --ok: #0d8f61;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(1200px 600px at 10% 0%, #ffd8c2, transparent),
+              radial-gradient(900px 600px at 90% 20%, #ffe7b8, transparent),
+              #f8efe5;
+  min-height: 100vh;
+}
+
+.bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(130deg, rgba(210, 77, 47, 0.09), rgba(255, 154, 60, 0.08));
+}
+
+.shell {
+  position: relative;
+  width: min(1000px, 92vw);
+  margin: 2rem auto 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.hero h1 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.4rem, 3vw, 2.3rem);
+}
+
+.kicker {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(47, 21, 6, 0.08);
+  padding: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.7rem;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+input, select, button {
+  border-radius: 10px;
+  border: 1px solid #d9c5b2;
+  padding: 0.6rem 0.7rem;
+  font: inherit;
+}
+
+input:focus, select:focus {
+  outline: 2px solid rgba(210, 77, 47, 0.25);
+  border-color: var(--accent);
+}
+
+.checks {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  grid-column: span 2;
+  font-size: 0.86rem;
+}
+
+.checks label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+}
+
+button {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: white;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.05); }
+
+.output-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.output h2 { margin: 0; }
+
+.status { margin: 0.6rem 0; color: #5a565f; }
+
+.results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.results li {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #fffcf8;
+}
+
+.results a {
+  color: #1f4ba8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.results a:hover { text-decoration: underline; }
+
+@media (max-width: 680px) {
+  .checks { grid-column: span 1; flex-direction: column; align-items: flex-start; }
+}

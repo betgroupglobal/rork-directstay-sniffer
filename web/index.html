@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NoPays Stays — Browser</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
+    <main class="shell">
+      <header class="hero">
+        <p class="kicker">NoPays Stays</p>
+        <h1>Find direct booking links in your browser</h1>
+      </header>
+
+      <section class="panel">
+        <form id="search-form" class="form-grid">
+          <label>
+            API Base URL
+            <input id="baseUrl" type="url" value="https://directstay-crawl-api.vercel.app" required />
+          </label>
+
+          <label>
+            Search mode
+            <select id="mode">
+              <option value="crawl">Full Crawl</option>
+              <option value="airbnb">Airbnb Provider</option>
+            </select>
+          </label>
+
+          <label>
+            Location
+            <input id="location" type="text" placeholder="Byron Bay" required />
+          </label>
+
+          <label>
+            Check-in
+            <input id="checkIn" type="date" />
+          </label>
+
+          <label>
+            Check-out
+            <input id="checkOut" type="date" />
+          </label>
+
+          <label>
+            Guests
+            <input id="guests" type="number" min="1" max="16" placeholder="2" />
+          </label>
+
+          <label>
+            Bedrooms
+            <input id="bedrooms" type="number" min="0" max="8" placeholder="2" />
+          </label>
+
+          <label>
+            Bathrooms
+            <input id="bathrooms" type="number" min="0" max="8" placeholder="1" />
+          </label>
+
+          <label>
+            Max results
+            <input id="maxResults" type="number" min="1" max="200" value="30" />
+          </label>
+
+          <div class="checks">
+            <label><input id="petFriendly" type="checkbox" /> Pet friendly</label>
+            <label><input id="wholeHome" type="checkbox" /> Whole home</label>
+          </div>
+
+          <button id="submitBtn" type="submit">Search</button>
+        </form>
+      </section>
+
+      <section class="panel output">
+        <div class="output-head">
+          <h2>Results</h2>
+          <span id="meta"></span>
+        </div>
+        <p id="status" class="status">Enter criteria and run search.</p>
+        <ul id="results" class="results"></ul>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
