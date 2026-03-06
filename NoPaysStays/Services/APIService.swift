@@ -117,6 +117,57 @@ actor APIService {
         return (200...299).contains(httpResponse.statusCode)
     }
 
+    func lookupDirectBooking(for property: Property) async throws -> [BookingHit] {
+        var queries: [String] = []
+
+        let name = property.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty && name != property.bookingLinks.first?.platform {
+            queries.append("\(name) direct booking website")
+        }
+
+        if let contact = property.ownerContact, let ownerName = contact.name, !ownerName.isEmpty {
+            let loc = [property.suburb, property.state].filter { !$0.isEmpty }.joined(separator: " ")
+            queries.append("\(ownerName) holiday rental \(loc) book direct")
+        }
+
+        let addressParts = [property.address, property.suburb, property.state, property.postcode].filter { !$0.isEmpty }
+        if addressParts.count >= 2 {
+            queries.append("\(addressParts.joined(separator: " ")) holiday house owner website")
+        }
+
+        if !property.suburb.isEmpty {
+            let bedStr = property.bedrooms > 0 ? "\(property.bedrooms) bedroom" : ""
+            queries.append("\(property.suburb) \(bedStr) holiday rental direct booking -airbnb -booking.com".trimmingCharacters(in: .whitespaces))
+        }
+
+        if queries.isEmpty {
+            queries.append("\(name) holiday rental direct")
+        }
+
+        var allHits: [BookingHit] = []
+        var seenURLs: Set<String> = []
+
+        for query in queries.prefix(3) {
+            let request = CrawlRequest(
+                location: query,
+                max_results: 10
+            )
+            do {
+                let response = try await crawl(request)
+                for hit in response.results {
+                    if !seenURLs.contains(hit.booking_url) {
+                        seenURLs.insert(hit.booking_url)
+                        allHits.append(hit)
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+
+        return allHits.sorted { $0.score > $1.score }
+    }
+
     var webhookURL: String {
         "\(baseURL)/api/v1/webhooks/guesty"
     }

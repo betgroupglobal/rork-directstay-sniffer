@@ -37,24 +37,3 @@ To reflect the actual purpose of the first step, you can rename it to something 
 Rule of thumb for step size: each step = a coherent unit of work (component, endpoint, test suite). Not too granular (single function), not too broad (entire feature). Unit tests are part of each step, not separate.
 
 Update `{@artifacts_path}/plan.md`.
-
-### [x] Step: Resolve merge divergence and complete backend-build-6545 merge into origin/main
-- Reconciled local/remote divergence constraints in worktree setup.
-- Merged `backend-build-6545` into a branch based on `origin/main`.
-- Pushed merge result to `origin/main` and verified ancestry.
-
-### [x] Step: Launch crawl backend on Vercel and provide API base URL
-- Added Vercel function adapter and routing for `/health`, `/api/v1/crawl`, and `/api/v1/webhooks/guesty`.
-- Fixed serverless runtime write-path issue by setting crawler DB path to `/tmp/crawler.db` before backend import.
-- Deployed successfully and validated health + crawl endpoints on production alias.
-
-### [x] Step: Add Airbnb API source integration
-- Added a new `AirbnbApiSource` and wired it into crawler source discovery.
-- Plumbed `AIRBNB_API_BASE` and `AIRBNB_API_KEY` into crawler construction.
-- Added unit tests for Airbnb API mapping/filtering and verified backend test suite passes.
-
-### [x] Step: Replace Airbnb API with AirROI/SearchApi provider integration
-- Replaced deprecated Airbnb API source with `AirbnbProviderSource` supporting `searchapi` and `airroi` providers.
-- Added dedicated endpoint `/api/v1/airbnb/search` in both local server and Vercel Flask adapter.
-- Added env support: `AIRBNB_PROVIDER`, `AIRBNB_API_KEY` (or `SEARCHAPI_API_KEY` / `AIRROI_API_KEY` fallback).
-- Removed old source file, updated tests, redeployed, and verified `/api/v1/airbnb/search` returns 200.

@@ -5,6 +5,7 @@ struct PropertyDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let property: Property
     @State private var selectedImageIndex: Int = 0
+    @State private var showDirectFinder: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -129,6 +130,9 @@ struct PropertyDetailView: View {
             Divider()
 
             amenitiesSection
+
+            Divider()
+            directBookingLookupSection
 
             if let contact = property.ownerContact {
                 Divider()
@@ -301,6 +305,57 @@ struct PropertyDetailView: View {
         .padding(14)
         .background(Color(.tertiarySystemBackground))
         .clipShape(.rect(cornerRadius: 12))
+    }
+
+    private var directBookingLookupSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Find Direct Booking")
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "sparkle")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.amber)
+            }
+
+            Text("Search the web for this property's owner website, direct booking page, or cheaper alternatives.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button {
+                showDirectFinder = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass.circle.fill")
+                        .font(.title3)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Search for Direct Site")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Property name, host, address lookup")
+                            .font(.caption2)
+                            .opacity(0.8)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.right.circle")
+                        .font(.body)
+                }
+                .foregroundStyle(.white)
+                .padding(14)
+                .background(
+                    LinearGradient(
+                        colors: [AppTheme.savingsGreen, AppTheme.savingsGreen.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: .rect(cornerRadius: 12)
+                )
+            }
+            .sensoryFeedback(.impact(flexibility: .soft), trigger: showDirectFinder)
+            .sheet(isPresented: $showDirectFinder) {
+                DirectBookingFinderView(property: property)
+                    .presentationDetents([.large])
+            }
+        }
     }
 
     private func amenityIcon(for amenity: String) -> String {
