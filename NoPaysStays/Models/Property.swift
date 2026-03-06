@@ -102,6 +102,50 @@ nonisolated struct Property: Codable, Identifiable, Sendable, Hashable {
         return otaPrice - altPrice
     }
 
+    static func fromBookingHit(_ hit: BookingHit) -> Property {
+        let urlHost = URL(string: hit.booking_url)?.host ?? hit.source
+        let isDirectHit = hit.source.localizedCaseInsensitiveContains("direct")
+            || hit.booking_url.contains("owner")
+            || (!hit.booking_url.contains("airbnb") && !hit.booking_url.contains("booking.com") && !hit.booking_url.contains("stayz") && !hit.booking_url.contains("expedia"))
+
+        let link = BookingLink(
+            id: UUID().uuidString,
+            platform: urlHost,
+            url: hit.booking_url,
+            pricePerNight: 0,
+            totalPrice: 0,
+            isDirectBooking: isDirectHit,
+            feesIncluded: false
+        )
+
+        let strength: BookingStrength = isDirectHit ? .direct : .alternative
+
+        return Property(
+            id: hit.booking_url,
+            title: hit.title.isEmpty ? urlHost : hit.title,
+            subtitle: String(hit.snippet.prefix(120)),
+            address: "",
+            suburb: "",
+            state: "",
+            postcode: "",
+            latitude: 0,
+            longitude: 0,
+            propertyType: .house,
+            bedrooms: 0,
+            bathrooms: 0,
+            maxGuests: 0,
+            isPetFriendly: false,
+            amenities: hit.matched_terms,
+            imageURLs: [],
+            bookingLinks: [link],
+            ownerContact: nil,
+            bookingStrength: strength,
+            otaPrice: 0,
+            bestAlternativePrice: nil,
+            discoveredAt: Date()
+        )
+    }
+
     var displayPrice: Double {
         bestAlternativePrice ?? otaPrice
     }

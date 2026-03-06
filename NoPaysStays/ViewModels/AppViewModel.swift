@@ -4,12 +4,15 @@ import MapKit
 @Observable
 final class AppViewModel {
     var properties: [Property] = MockDataService.properties
+    var searchResults: [Property] = []
     var favoriteIDs: Set<String> = []
     var savedSearches: [SavedSearch] = MockDataService.savedSearches
     var alerts: [PropertyAlert] = MockDataService.alerts
     var selectedProperty: Property?
     var searchText: String = ""
     var isLoading: Bool = false
+    var errorMessage: String?
+    var hasSearched: Bool = false
 
     var filterPetFriendly: Bool = false
     var filterDirectOnly: Bool = false
@@ -79,6 +82,41 @@ final class AppViewModel {
         filterDirectOnly = false
         filterMinGuests = 1
         filterPropertyTypes = []
+    }
+
+    func searchAPI(
+        location: String,
+        checkIn: Date? = nil,
+        checkOut: Date? = nil,
+        guests: Int? = nil,
+        petFriendly: Bool? = nil
+    ) async {
+        isLoading = true
+        errorMessage = nil
+        hasSearched = true
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        let request = CrawlRequest(
+            location: location,
+            check_in: checkIn.map { formatter.string(from: $0) },
+            check_out: checkOut.map { formatter.string(from: $0) },
+            guests: guests,
+            pet_friendly: petFriendly == true ? true : nil,
+            max_results: 30
+        )
+
+        do {
+            let results = try await APIService.shared.crawlToProperties(request)
+            searchResults = results
+            properties = MockDataService.properties + results
+        } catch {
+            errorMessage = error.localizedDescription
+            searchResults = []
+        }
+
+        isLoading = false
     }
 
     private func saveFavorites() {

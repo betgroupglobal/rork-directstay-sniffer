@@ -206,6 +206,15 @@ struct SearchView: View {
                     viewModel.searchText = locationQuery
                 }
                 showResults = true
+                Task {
+                    await viewModel.searchAPI(
+                        location: locationQuery,
+                        checkIn: checkIn,
+                        checkOut: checkOut,
+                        guests: guests,
+                        petFriendly: petFriendly
+                    )
+                }
             } label: {
                 Label("Search Properties", systemImage: "magnifyingglass")
                     .font(.headline)
@@ -233,13 +242,77 @@ struct SearchResultsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("\(viewModel.filteredProperties.count) properties found")
+            Group {
+                if viewModel.isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .controlSize(.large)
+                        Text("Crawling for direct stays...")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        Text("This may take a moment")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error = viewModel.errorMessage {
+                    ContentUnavailableView {
+                        Label("Search Failed", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Dismiss") { dismiss() }
+                            .buttonStyle(.bordered)
+                    }
+                } else {
+                    resultsContent
+                }
+            }
+            .navigationTitle("Results")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .sheet(item: $selectedProperty) { property in
+                PropertyDetailView(property: property)
+            }
+        }
+    }
+
+    private var resultsContent: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                if !viewModel.searchResults.isEmpty {
+                    HStack {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .foregroundStyle(AppTheme.savingsGreen)
+                        Text("\(viewModel.searchResults.count) direct stays found")
+                            .font(.subheadline.weight(.medium))
                         Spacer()
+                    }
+                    .padding(.bottom, 4)
+
+                    ForEach(viewModel.searchResults) { property in
+                        Button {
+                            selectedProperty = property
+                        } label: {
+                            CrawlResultCard(property: property)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if !viewModel.filteredProperties.isEmpty {
+                    if !viewModel.searchResults.isEmpty {
+                        HStack {
+                            Text("Local Results")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.top, 8)
                     }
 
                     ForEach(viewModel.filteredProperties) { property in
@@ -254,29 +327,82 @@ struct SearchResultsView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                }
 
-                    if viewModel.filteredProperties.isEmpty {
-                        ContentUnavailableView(
-                            "No Results",
-                            systemImage: "magnifyingglass",
-                            description: Text("No properties match your criteria")
-                        )
-                        .padding(.top, 40)
+                if viewModel.searchResults.isEmpty && viewModel.filteredProperties.isEmpty {
+                    ContentUnavailableView(
+                        "No Results",
+                        systemImage: "magnifyingglass",
+                        description: Text("No properties match your criteria")
+                    )
+                    .padding(.top, 40)
+                }
+            }
+            .padding()
+        }
+    }
+}
+
+struct CrawlResultCard: View {
+    let property: Property
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(AppTheme.burntOrange.opacity(0.12))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: property.bookingStrength == .direct ? "checkmark.seal.fill" : "link")
+                        .font(.title3)
+                        .foregroundStyle(property.bookingStrength == .direct ? AppTheme.savingsGreen : AppTheme.burntOrange)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(property.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    if !property.subtitle.isEmpty {
+                        Text(property.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+
+                    HStack(spacing: 6) {
+                        if let link = property.bookingLinks.first {
+                            Text(link.platform)
+                                .font(.caption2.weight(.medium))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color(.tertiarySystemBackground))
+                                .clipShape(Capsule())
+
+                            if link.isDirectBooking {
+                                Text("DIRECT")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(AppTheme.savingsGreen, in: Capsule())
+                            }
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
-                .padding()
-            }
-            .navigationTitle("Results")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .sheet(item: $selectedProperty) { property in
-                PropertyDetailView(property: property)
             }
         }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(.rect(cornerRadius: 14))
     }
 }
 
