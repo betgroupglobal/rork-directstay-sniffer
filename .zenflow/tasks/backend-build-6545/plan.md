@@ -52,3 +52,9 @@ Update `{@artifacts_path}/plan.md`.
 - Added a new `AirbnbApiSource` and wired it into crawler source discovery.
 - Plumbed `AIRBNB_API_BASE` and `AIRBNB_API_KEY` into crawler construction.
 - Added unit tests for Airbnb API mapping/filtering and verified backend test suite passes.
+
+### [x] Step: Replace Airbnb API with AirROI/SearchApi provider integration
+- Replaced deprecated Airbnb API source with `AirbnbProviderSource` supporting `searchapi` and `airroi` providers.
+- Added dedicated endpoint `/api/v1/airbnb/search` in both local server and Vercel Flask adapter.
+- Added env support: `AIRBNB_PROVIDER`, `AIRBNB_API_KEY` (or `SEARCHAPI_API_KEY` / `AIRROI_API_KEY` fallback).
+- Removed old source file, updated tests, redeployed, and verified `/api/v1/airbnb/search` returns 200.

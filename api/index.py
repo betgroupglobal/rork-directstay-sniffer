@@ -13,7 +13,13 @@ if str(BACKEND) not in sys.path:
 
 os.environ.setdefault("CRAWLER_DB_PATH", "/tmp/crawler.db")
 
-from stays_crawler.server import build_crawler, handle_guesty_webhook, handle_search_payload, _verify_guesty_signature
+from stays_crawler.server import (
+    _verify_guesty_signature,
+    build_crawler,
+    handle_airbnb_search_payload,
+    handle_guesty_webhook,
+    handle_search_payload,
+)
 
 app = Flask(__name__)
 _crawler = None
@@ -49,6 +55,17 @@ def crawl():
     if payload is None:
         return jsonify({"error": "invalid json"}), 400
     status, body = handle_search_payload(payload, _get_crawler())
+    return jsonify(body), int(status)
+
+
+@app.route("/api/v1/airbnb/search", methods=["POST", "OPTIONS"])
+def airbnb_search():
+    if request.method == "OPTIONS":
+        return "", 204
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({"error": "invalid json"}), 400
+    status, body = handle_airbnb_search_payload(payload, _get_crawler())
     return jsonify(body), int(status)
 
 

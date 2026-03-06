@@ -11,6 +11,7 @@ from stays_crawler.crawler import StaysCrawler
 from stays_crawler.extract import is_direct_property_url, normalize_url
 from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import CrawlRequest
+from stays_crawler.sources.airbnb_provider import AirbnbProviderSource
 from stays_crawler.storage import CrawlStore
 
 
@@ -28,8 +29,8 @@ def build_crawler() -> StaysCrawler:
     guesty_client_id = os.getenv("GUESTY_CLIENT_ID")
     guesty_client_secret = os.getenv("GUESTY_CLIENT_SECRET")
     guesty_api_base = os.getenv("GUESTY_API_BASE", "https://open-api.guesty.com")
-    airbnb_api_base = os.getenv("AIRBNB_API_BASE")
-    airbnb_api_key = os.getenv("AIRBNB_API_KEY")
+    airbnb_provider = os.getenv("AIRBNB_PROVIDER", "searchapi")
+    airbnb_api_key = os.getenv("AIRBNB_API_KEY") or os.getenv("SEARCHAPI_API_KEY") or os.getenv("AIRROI_API_KEY")
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     fetcher = HttpFetcher(
         user_agent=ua,
@@ -49,7 +50,7 @@ def build_crawler() -> StaysCrawler:
         guesty_client_id=guesty_client_id,
         guesty_client_secret=guesty_client_secret,
         guesty_api_base=guesty_api_base,
-        airbnb_api_base=airbnb_api_base,
+        airbnb_provider=airbnb_provider,
         airbnb_api_key=airbnb_api_key,
     )
 
@@ -62,6 +63,24 @@ def handle_search_payload(payload: dict, crawler: StaysCrawler | None = None) ->
         return HTTPStatus.BAD_REQUEST, {"error": str(exc)}
     response = service.crawl(req)
     return HTTPStatus.OK, response.to_dict()
+
+
+def handle_airbnb_search_payload(payload: dict, crawler: StaysCrawler | None = None) -> tuple[int, dict]:
+    service = crawler or build_crawler()
+    try:
+        req = CrawlRequest.from_payload(payload)
+    except (TypeError, ValueError) as exc:
+        return HTTPStatus.BAD_REQUEST, {"error": str(exc)}
+    source = AirbnbProviderSource(provider=service.airbnb_provider, api_key=service.airbnb_api_key)
+    hits = source.discover(req)
+    return HTTPStatus.OK, {
+        "source": source.provider,
+        "total": len(hits),
+        "results": [
+            {"url": hit.url, "title": hit.title, "snippet": hit.snippet, "source": hit.source}
+            for hit in hits[: req.max_results]
+        ],
+    }
 
 
 def handle_guesty_webhook(payload: dict, store: CrawlStore, event_type: str = "") -> tuple[int, dict]:
@@ -153,7 +172,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def do_POST(self) -> None:
-        if self.path not in {"/api/v1/crawl", "/api/v1/webhooks/guesty"}:
+        if self.path not in {"/api/v1/crawl", "/api/v1/airbnb/search", "/api/v1/webhooks/guesty"}:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         length = int(self.headers.get("Content-Length", "0"))
@@ -165,6 +184,10 @@ class ApiHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/v1/crawl":
             status, body = handle_search_payload(payload, self.crawler)
+            self._send_json(status, body)
+            return
+        if self.path == "/api/v1/airbnb/search":
+            status, body = handle_airbnb_search_payload(payload, self.crawler)
             self._send_json(status, body)
             return
         if not _verify_guesty_signature(raw, self.headers.get("X-Guesty-Signature", "")):
