@@ -77,3 +77,7 @@ Update `{@artifacts_path}/plan.md`.
 - Added `Direct Hunter` as a dedicated search mode option in `web/index.html`.
 - Wired `direct_hunter` mode in `web/app.js` to use crawl endpoint with stronger defaults (`crawl_depth`, `max_pages_per_source`, `whole_home`).
 - Updated mode-specific phase messaging and source labels for direct hunter results.
+
+### [x] Step: Deploy updated browser app to Vercel production
+- Deployed `web/` with Vercel CLI and updated production alias.
+- Verified alias `https://nopays-stays-web.vercel.app` is serving the updated UI.
