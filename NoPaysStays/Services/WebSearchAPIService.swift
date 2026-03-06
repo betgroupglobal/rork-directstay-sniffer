@@ -39,11 +39,11 @@ final class WebSearchAPIService {
         return []
     }
 
-    static let googleAPIKey = ""
-    static let googleCX = ""
-    static let bingAPIKey = ""
-    static let serpAPIKey = ""
-    static let braveAPIKey = ""
+    static var googleAPIKey: String { "" }
+    static var googleCX: String { "" }
+    static var bingAPIKey: String { "" }
+    static var serpAPIKey: String { "" }
+    static var braveAPIKey: String { "" }
 
     private func googleSearch(query: String) async throws -> [WebSearchResult] {
         let apiKey = Self.googleAPIKey

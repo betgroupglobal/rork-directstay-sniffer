@@ -1,9 +1,8 @@
 import Foundation
 
 enum AIAnalysisService {
-    private static var baseURL: String {
-        Config.EXPO_PUBLIC_TOOLKIT_URL
-    }
+    private static let mercuryBaseURL = "https://api.inceptionlabs.ai/v1/chat/completions"
+    private static let model = "mercury-2"
 
     static func analyzeProperty(
         url: String,
@@ -18,7 +17,7 @@ enum AIAnalysisService {
             criteria: criteria
         )
 
-        let responseText = try await sendChatRequest(prompt: prompt)
+        let responseText = try await sendMercuryRequest(prompt: prompt)
         let parsed = parseAnalysisResponse(responseText)
 
         return PropertyAnalysis(
@@ -34,24 +33,32 @@ enum AIAnalysisService {
         )
     }
 
-    private static func sendChatRequest(prompt: String) async throws -> String {
-        guard !baseURL.isEmpty else {
+    private static func sendMercuryRequest(prompt: String) async throws -> String {
+        let apiKey = Config.MERCURY_API_KEY
+        guard !apiKey.isEmpty else {
             throw AIAnalysisError.missingConfiguration
         }
 
-        guard let endpoint = URL(string: baseURL)?.appendingPathComponent("agent/chat") else {
+        guard let endpoint = URL(string: mercuryBaseURL) else {
             throw AIAnalysisError.invalidURL
         }
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 120
 
-        let body = ToolkitChatRequest(messages: [
-            ToolkitMessage(role: "user", content: prompt)
-        ])
-        request.httpBody = try JSONEncoder().encode(body)
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [
+                ["role": "system", "content": "You are a holiday rental analyst helping travellers find direct bookings to avoid OTA fees. Be specific, practical, and actionable."],
+                ["role": "user", "content": prompt]
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.7
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -63,36 +70,16 @@ enum AIAnalysisService {
             throw AIAnalysisError.serverError(httpResponse.statusCode)
         }
 
-        let rawString = String(data: data, encoding: .utf8) ?? ""
-
-        if let chatResponse = try? JSONDecoder().decode(ToolkitChatResponse.self, from: data) {
-            return chatResponse.text ?? chatResponse.content ?? rawString
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            let rawString = String(data: data, encoding: .utf8) ?? ""
+            if !rawString.isEmpty { return rawString }
+            throw AIAnalysisError.decodingError
         }
 
-        return extractTextFromStreamResponse(rawString)
-    }
-
-    private static func extractTextFromStreamResponse(_ raw: String) -> String {
-        var result = ""
-        for line in raw.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.hasPrefix("0:\"") && trimmed.hasSuffix("\"") {
-                let content = String(trimmed.dropFirst(3).dropLast(1))
-                    .replacingOccurrences(of: "\\n", with: "\n")
-                    .replacingOccurrences(of: "\\\"", with: "\"")
-                result += content
-            } else if trimmed.hasPrefix("data: ") {
-                let jsonStr = String(trimmed.dropFirst(6))
-                if let jsonData = jsonStr.data(using: .utf8),
-                   let obj = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                   let choices = obj["choices"] as? [[String: Any]],
-                   let delta = choices.first?["delta"] as? [String: Any],
-                   let content = delta["content"] as? String {
-                    result += content
-                }
-            }
-        }
-        return result.isEmpty ? raw : result
+        return content
     }
 
     private static func buildAnalysisPrompt(
@@ -109,8 +96,6 @@ enum AIAnalysisService {
         }
 
         return """
-        You are a holiday rental analyst helping a traveller find direct bookings to avoid OTA fees (Airbnb charges 15-20%).
-
         Analyze this listing/platform link and provide insights in EXACTLY this format. Use the section headers exactly as shown:
 
         **PROPERTY OFFERINGS**
@@ -212,13 +197,13 @@ nonisolated enum AIAnalysisError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .missingConfiguration:
-            "AI analysis is not configured. Please check your settings."
+            "Mercury API key not configured. Please check your settings."
         case .invalidURL:
             "Invalid API endpoint."
         case .networkError:
             "Network error. Please check your connection."
         case .serverError(let code):
-            "Server error (\(code)). Please try again."
+            "Mercury API error (\(code)). Please try again."
         case .decodingError:
             "Failed to process AI response."
         }

@@ -79,4 +79,4 @@ Visit NSW, Visit Victoria, Queensland.com, WA Tourism, Local Council directories
 - Local persistence for search history and saved finds using UserDefaults
 - MapKit autocomplete for Australian location search
 - In-app browsing via SFSafariViewController
-- AI analysis via Rork Toolkit for deep property insights
+- AI analysis via Mercury 2 (Inception Labs) for deep property insights

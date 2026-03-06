@@ -9,9 +9,5 @@ import Foundation
 
 enum Config {
     static let EXPO_PUBLIC_TOOLKIT_URL = ""
-    static let GOOGLE_API_KEY = ""
-    static let GOOGLE_CX = ""
-    static let BING_API_KEY = ""
-    static let SERP_API_KEY = ""
-    static let BRAVE_API_KEY = ""
+    static let MERCURY_API_KEY = ""
 }
