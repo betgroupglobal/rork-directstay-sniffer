@@ -10,6 +10,7 @@ const meterBarEl = document.getElementById('meterBar');
 const byId = (id) => document.getElementById(id);
 
 const PHASES = {
+  direct_hunter: ['Activating direct hunter', 'Sweeping source pages', 'Locking direct booking links', 'Ranking hunter matches'],
   crawl: ['Mapping targets', 'Probing listings', 'Scoring direct links', 'Refining top matches'],
   airbnb: ['Querying provider', 'Normalizing listing URLs', 'Filtering valid stays', 'Assembling results'],
 };
@@ -92,10 +93,11 @@ function renderItems(items, mode) {
     const link = item.booking_url || item.url;
     const title = item.title || link;
     const snippet = item.snippet || '';
+    const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'direct-hunter');
     li.innerHTML = `
       <a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>
       <div>${snippet}</div>
-      <small>${mode === 'crawl' ? (item.source || 'crawl') : (item.source || 'airbnb')}</small>
+      <small>${sourceLabel}</small>
     `;
     listEl.appendChild(li);
   }
@@ -107,6 +109,12 @@ formEl.addEventListener('submit', async (event) => {
   const mode = byId('mode').value;
   const endpoint = mode === 'airbnb' ? '/api/v1/airbnb/search' : '/api/v1/crawl';
   const payload = buildPayload();
+
+  if (mode === 'direct_hunter') {
+    payload.crawl_depth = Math.max(2, Number(payload.crawl_depth || 0));
+    payload.max_pages_per_source = Math.max(35, Number(payload.max_pages_per_source || 0));
+    if (payload.whole_home !== true) payload.whole_home = true;
+  }
 
   if (!payload.location) {
     statusEl.textContent = 'Location is required.';

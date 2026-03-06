@@ -72,3 +72,8 @@ Update `{@artifacts_path}/plan.md`.
 - Added a custom scan loader block with pulse/orbit animation and progress meter in `web/index.html` and `web/styles.css`.
 - Wired phased, mode-aware progress updates in `web/app.js` during active crawl/API requests.
 - Validated updated browser script syntax (`node --check web/app.js`).
+
+### [x] Step: Add direct hunter feature to browser mode selector
+- Added `Direct Hunter` as a dedicated search mode option in `web/index.html`.
+- Wired `direct_hunter` mode in `web/app.js` to use crawl endpoint with stronger defaults (`crawl_depth`, `max_pages_per_source`, `whole_home`).
+- Updated mode-specific phase messaging and source labels for direct hunter results.
