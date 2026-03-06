@@ -16,6 +16,7 @@ struct SearchView: View {
     @State private var useDates: Bool = true
     @State private var searchCompleter = LocationSearchCompleter()
     @State private var showResults: Bool = false
+    @State private var showSpider: Bool = false
     @State private var animateGradient: Bool = false
     @State private var hapticTrigger: Int = 0
 
@@ -33,6 +34,9 @@ struct SearchView: View {
             .scrollDismissesKeyboard(.interactively)
             .sheet(isPresented: $showResults) {
                 SearchResultsView()
+            }
+            .fullScreenCover(isPresented: $showSpider) {
+                SpiderResultsView(criteria: viewModel.currentCriteria)
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
@@ -70,7 +74,7 @@ struct SearchView: View {
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Skip the 15-20% OTA fees — the app hunts\n\(searchLinkCount) sources for you automatically")
+                Text("Skip the 15-20% OTA fees — spider crawls\n\(searchLinkCount) sources automatically")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.85))
                     .multilineTextAlignment(.center)
@@ -264,45 +268,74 @@ struct SearchView: View {
         .clipShape(.rect(cornerRadius: 12))
     }
 
+    private func buildCriteria() -> SearchCriteria {
+        SearchCriteria(
+            location: locationQuery,
+            checkIn: useDates ? checkIn : nil,
+            checkOut: useDates ? checkOut : nil,
+            guests: guests,
+            bedrooms: bedrooms,
+            bathrooms: bathrooms,
+            isPetFriendly: petFriendly,
+            isWholeHome: wholeHome,
+            maxPricePerNight: Int(maxPrice),
+            radiusKm: radius
+        )
+    }
+
     private var searchButton: some View {
-        Button {
-            hapticTrigger += 1
-            viewModel.currentCriteria = SearchCriteria(
-                location: locationQuery,
-                checkIn: useDates ? checkIn : nil,
-                checkOut: useDates ? checkOut : nil,
-                guests: guests,
-                bedrooms: bedrooms,
-                bathrooms: bathrooms,
-                isPetFriendly: petFriendly,
-                isWholeHome: wholeHome,
-                maxPricePerNight: Int(maxPrice),
-                radiusKm: radius
-            )
-            viewModel.performSearch()
-            showResults = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "binoculars.fill")
-                    .font(.headline)
-                VStack(spacing: 2) {
-                    Text("Hunt Direct Bookings")
+        VStack(spacing: 10) {
+            Button {
+                hapticTrigger += 1
+                viewModel.currentCriteria = buildCriteria()
+                viewModel.performSearch()
+                showSpider = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "ant.fill")
                         .font(.headline)
-                    Text("\(searchLinkCount) sources · auto-opens each in-app")
-                        .font(.caption2)
-                        .opacity(0.85)
+                    VStack(spacing: 2) {
+                        Text("Spider Hunt")
+                            .font(.headline)
+                        Text("Auto-crawl \(searchLinkCount) sources in background")
+                            .font(.caption2)
+                            .opacity(0.85)
+                    }
                 }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(colors: [AppTheme.coral, AppTheme.burntOrange], startPoint: .leading, endPoint: .trailing),
+                    in: .rect(cornerRadius: 14)
+                )
             }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                LinearGradient(colors: [AppTheme.coral, AppTheme.burntOrange], startPoint: .leading, endPoint: .trailing),
-                in: .rect(cornerRadius: 14)
-            )
+            .disabled(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .opacity(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+
+            Button {
+                hapticTrigger += 1
+                viewModel.currentCriteria = buildCriteria()
+                viewModel.performSearch()
+                showResults = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.subheadline)
+                    Text("Manual Hunt")
+                        .font(.subheadline.weight(.semibold))
+                    Text("browse links yourself")
+                        .font(.caption2)
+                        .opacity(0.7)
+                }
+                .foregroundStyle(AppTheme.coral)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppTheme.coral.opacity(0.1), in: .rect(cornerRadius: 12))
+            }
+            .disabled(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .opacity(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
         }
-        .disabled(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        .opacity(locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
         .padding(.top, 4)
     }
 }

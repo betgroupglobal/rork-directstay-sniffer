@@ -12,6 +12,8 @@ final class AppViewModel {
     var checkedLinks: Set<String> = []
     var analysisCache: [String: PropertyAnalysis] = [:]
     var analysisHistory: [PropertyAnalysis] = []
+    var showSpiderResults: Bool = false
+    var spiderCriteria: SearchCriteria?
 
     func performSearch() {
         guard !currentCriteria.location.isEmpty else { return }
