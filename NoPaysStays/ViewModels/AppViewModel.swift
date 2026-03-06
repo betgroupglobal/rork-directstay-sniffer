@@ -5,7 +5,8 @@ import MapKit
 final class AppViewModel {
     var properties: [Property] = MockDataService.properties
     var searchResults: [Property] = []
-    var airbnbResults: [Property] = []
+    var huntResults: [String: [BookingHit]] = [:]
+    var huntingPropertyIDs: Set<String> = []
     var favoriteIDs: Set<String> = []
     var savedSearches: [SavedSearch] = MockDataService.savedSearches
     var alerts: [PropertyAlert] = MockDataService.alerts
@@ -85,6 +86,33 @@ final class AppViewModel {
         filterPropertyTypes = []
     }
 
+    func isAirbnb(_ property: Property) -> Bool {
+        property.id.hasPrefix("airbnb-")
+    }
+
+    func huntProperty(_ property: Property) async {
+        guard !huntingPropertyIDs.contains(property.id) else { return }
+        huntingPropertyIDs.insert(property.id)
+
+        do {
+            let hits = try await APIService.shared.lookupDirectBooking(for: property)
+            huntResults[property.id] = hits
+        } catch {
+            huntResults[property.id] = []
+        }
+
+        huntingPropertyIDs.remove(property.id)
+    }
+
+    func directHitsCount(for property: Property) -> Int {
+        guard let hits = huntResults[property.id] else { return 0 }
+        let otaDomains = ["airbnb.com", "booking.com", "stayz.com", "expedia.com", "vrbo.com", "hotels.com", "agoda.com"]
+        return hits.filter { hit in
+            let url = hit.booking_url.lowercased()
+            return !otaDomains.contains(where: { url.contains($0) })
+        }.count
+    }
+
     func searchAPI(
         location: String,
         checkIn: Date? = nil,
@@ -96,7 +124,8 @@ final class AppViewModel {
         errorMessage = nil
         hasSearched = true
         searchResults = []
-        airbnbResults = []
+        huntResults = [:]
+        huntingPropertyIDs = []
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -140,11 +169,26 @@ final class AppViewModel {
 
         let (crawlResults, airbnbListings) = await (crawlTask, airbnbTask)
 
-        searchResults = crawlResults
-        airbnbResults = airbnbListings
-        properties = MockDataService.properties + crawlResults + airbnbListings
+        var merged: [Property] = []
+        var seenIDs: Set<String> = []
 
-        if crawlResults.isEmpty && airbnbListings.isEmpty {
+        for p in crawlResults {
+            if !seenIDs.contains(p.id) {
+                seenIDs.insert(p.id)
+                merged.append(p)
+            }
+        }
+        for p in airbnbListings {
+            if !seenIDs.contains(p.id) {
+                seenIDs.insert(p.id)
+                merged.append(p)
+            }
+        }
+
+        searchResults = merged
+        properties = MockDataService.properties + merged
+
+        if merged.isEmpty {
             errorMessage = "No results found. Try a different location or broader search."
         }
 

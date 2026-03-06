@@ -281,79 +281,31 @@ struct SearchResultsView: View {
         }
     }
 
+    private var airbnbResults: [Property] {
+        viewModel.searchResults.filter { $0.id.hasPrefix("airbnb-") }
+    }
+
+    private var crawlResults: [Property] {
+        viewModel.searchResults.filter { !$0.id.hasPrefix("airbnb-") }
+    }
+
     private var resultsContent: some View {
         ScrollView {
             VStack(spacing: 12) {
-                if !viewModel.airbnbResults.isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "house.fill")
-                            .foregroundStyle(AppTheme.coral)
-                        Text("\(viewModel.airbnbResults.count) Airbnb Listings")
-                            .font(.subheadline.weight(.medium))
-                        Spacer()
-                        Text("Tap to find direct")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.bottom, 4)
-
-                    ForEach(viewModel.airbnbResults) { property in
-                        Button {
-                            selectedProperty = property
-                        } label: {
-                            AirbnbResultCard(property: property)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                resultsSummaryBar
 
                 if !viewModel.searchResults.isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                            .foregroundStyle(AppTheme.savingsGreen)
-                        Text("\(viewModel.searchResults.count) Direct Stays Found")
-                            .font(.subheadline.weight(.medium))
-                        Spacer()
-                    }
-                    .padding(.top, viewModel.airbnbResults.isEmpty ? 0 : 8)
-                    .padding(.bottom, 4)
-
                     ForEach(viewModel.searchResults) { property in
                         Button {
                             selectedProperty = property
                         } label: {
-                            CrawlResultCard(property: property)
+                            UnifiedResultCard(property: property)
                         }
                         .buttonStyle(.plain)
                     }
                 }
 
-                if !viewModel.filteredProperties.isEmpty {
-                    if !viewModel.searchResults.isEmpty || !viewModel.airbnbResults.isEmpty {
-                        HStack {
-                            Text("Local Results")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
-                        .padding(.top, 8)
-                    }
-
-                    ForEach(viewModel.filteredProperties) { property in
-                        Button {
-                            selectedProperty = property
-                        } label: {
-                            PropertyCardView(
-                                property: property,
-                                isFavorite: viewModel.isFavorite(property),
-                                onFavorite: { viewModel.toggleFavorite(property) }
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                if viewModel.searchResults.isEmpty && viewModel.airbnbResults.isEmpty && viewModel.filteredProperties.isEmpty {
+                if viewModel.searchResults.isEmpty && viewModel.filteredProperties.isEmpty {
                     ContentUnavailableView(
                         "No Results",
                         systemImage: "magnifyingglass",
@@ -364,6 +316,40 @@ struct SearchResultsView: View {
             }
             .padding()
         }
+    }
+
+    private var resultsSummaryBar: some View {
+        HStack(spacing: 16) {
+            if !airbnbResults.isEmpty {
+                HStack(spacing: 5) {
+                    Image(systemName: "house.fill")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.coral)
+                    Text("\(airbnbResults.count)")
+                        .font(.caption.weight(.bold))
+                    Text("Airbnb")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if !crawlResults.isEmpty {
+                HStack(spacing: 5) {
+                    Image(systemName: "antenna.radiowaves.left.and.right")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.savingsGreen)
+                    Text("\(crawlResults.count)")
+                        .font(.caption.weight(.bold))
+                    Text("Direct")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Text("\(viewModel.searchResults.count) total")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 4)
     }
 }
 
@@ -430,94 +416,228 @@ struct CrawlResultCard: View {
     }
 }
 
-struct AirbnbResultCard: View {
+struct UnifiedResultCard: View {
+    @Environment(AppViewModel.self) private var viewModel
     let property: Property
+    @State private var showDirectFinder: Bool = false
+
+    private var isAirbnb: Bool { property.id.hasPrefix("airbnb-") }
+    private var isHunting: Bool { viewModel.huntingPropertyIDs.contains(property.id) }
+    private var huntCompleted: Bool { viewModel.huntResults[property.id] != nil }
+    private var directCount: Int { viewModel.directHitsCount(for: property) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            if let imageURL = property.imageURLs.first, let url = URL(string: imageURL) {
-                Color(.secondarySystemBackground)
-                    .frame(width: 72, height: 72)
-                    .overlay {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } else if phase.error != nil {
-                                Image(systemName: "photo")
-                                    .foregroundStyle(.tertiary)
-                            } else {
-                                ProgressView()
-                            }
-                        }
-                        .allowsHitTesting(false)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                thumbnailView
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(property.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    if !property.subtitle.isEmpty {
+                        Text(property.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    .clipShape(.rect(cornerRadius: 10))
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(AppTheme.coral.opacity(0.1))
-                        .frame(width: 72, height: 72)
-                    Image(systemName: "house.fill")
-                        .font(.title3)
-                        .foregroundStyle(AppTheme.coral)
+
+                    HStack(spacing: 6) {
+                        sourceBadge
+                        if property.bedrooms > 0 {
+                            Label("\(property.bedrooms)", systemImage: "bed.double.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        if property.maxGuests > 0 {
+                            Label("\(property.maxGuests)", systemImage: "person.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if property.otaPrice > 0 {
+                            Text("$\(Int(property.otaPrice))/night")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.burntOrange)
+                        }
+                    }
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(property.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-
-                if !property.subtitle.isEmpty {
-                    Text(property.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
+            if isAirbnb {
+                huntSection
+            } else if let link = property.bookingLinks.first {
                 HStack(spacing: 6) {
-                    if property.bedrooms > 0 {
-                        Label("\(property.bedrooms)", systemImage: "bed.double.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if property.maxGuests > 0 {
-                        Label("\(property.maxGuests)", systemImage: "person.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-
-                HStack(spacing: 6) {
-                    if property.otaPrice > 0 {
-                        Text("$\(Int(property.otaPrice))/night")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppTheme.burntOrange)
-                    }
-
-                    Text("AIRBNB")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
+                    Text(link.platform)
+                        .font(.caption2.weight(.medium))
+                        .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(AppTheme.coral, in: Capsule())
-
+                        .background(Color(.tertiarySystemBackground))
+                        .clipShape(Capsule())
+                    if link.isDirectBooking {
+                        Text("DIRECT")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(AppTheme.savingsGreen, in: Capsule())
+                    }
                     Spacer()
-
-                    Text("Find Direct")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(AppTheme.savingsGreen)
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.savingsGreen)
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
+                .padding(.top, 8)
             }
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(.rect(cornerRadius: 14))
+        .sheet(isPresented: $showDirectFinder) {
+            DirectBookingFinderView(property: property)
+                .presentationDetents([.large])
+        }
+    }
+
+    @ViewBuilder
+    private var thumbnailView: some View {
+        if let imageURL = property.imageURLs.first, let url = URL(string: imageURL) {
+            Color(.secondarySystemBackground)
+                .frame(width: 68, height: 68)
+                .overlay {
+                    AsyncImage(url: url) { phase in
+                        if let image = phase.image {
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } else if phase.error != nil {
+                            Image(systemName: "photo")
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            ProgressView()
+                        }
+                    }
+                    .allowsHitTesting(false)
+                }
+                .clipShape(.rect(cornerRadius: 10))
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        isAirbnb
+                            ? AppTheme.coral.opacity(0.12)
+                            : property.bookingStrength == .direct
+                                ? AppTheme.savingsGreen.opacity(0.12)
+                                : AppTheme.burntOrange.opacity(0.12)
+                    )
+                    .frame(width: 68, height: 68)
+                Image(systemName: isAirbnb ? "house.fill" : (property.bookingStrength == .direct ? "checkmark.seal.fill" : "link"))
+                    .font(.title3)
+                    .foregroundStyle(isAirbnb ? AppTheme.coral : (property.bookingStrength == .direct ? AppTheme.savingsGreen : AppTheme.burntOrange))
+            }
+        }
+    }
+
+    private var sourceBadge: some View {
+        Group {
+            if isAirbnb {
+                Text("AIRBNB")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(AppTheme.coral, in: Capsule())
+            } else if property.bookingStrength == .direct {
+                Text("DIRECT")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(AppTheme.savingsGreen, in: Capsule())
+            } else {
+                Text("CRAWL")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(AppTheme.burntOrange, in: Capsule())
+            }
+        }
+    }
+
+    private var huntSection: some View {
+        VStack(spacing: 0) {
+            Divider()
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+
+            if isHunting {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Hunting for direct booking...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            } else if huntCompleted {
+                if directCount > 0 {
+                    Button {
+                        showDirectFinder = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(AppTheme.savingsGreen)
+                            Text("\(directCount) direct site\(directCount == 1 ? "" : "s") found")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.savingsGreen)
+                            Spacer()
+                            Text("View")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(AppTheme.savingsGreen)
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.savingsGreen)
+                        }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Text("No direct sites found")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Button {
+                            showDirectFinder = true
+                        } label: {
+                            Text("Details")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(AppTheme.burntOrange)
+                        }
+                    }
+                }
+            } else {
+                Button {
+                    Task {
+                        await viewModel.huntProperty(property)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass.circle.fill")
+                            .foregroundStyle(AppTheme.savingsGreen)
+                        Text("Hunt for direct booking")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppTheme.savingsGreen)
+                        Spacer()
+                        Image(systemName: "arrow.right.circle")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.savingsGreen.opacity(0.6))
+                    }
+                }
+            }
+        }
     }
 }
 
