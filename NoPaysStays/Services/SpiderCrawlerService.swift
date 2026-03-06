@@ -14,13 +14,16 @@ final class SpiderCrawlerService {
 
     init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 30
+        config.timeoutIntervalForRequest = 45
+        config.timeoutIntervalForResource = 90
         config.httpAdditionalHeaders = [
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-AU,en;q=0.9"
+            "Accept-Language": "en-AU,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive"
         ]
+        config.waitsForConnectivity = true
         session = URLSession(configuration: config)
     }
 
@@ -40,7 +43,7 @@ final class SpiderCrawlerService {
         crawlTask = Task { [weak self] in
             guard let self else { return }
 
-            let batches = platformSearches.chunked(into: 3)
+            let batches = platformSearches.chunked(into: 2)
 
             for (batchIndex, batch) in batches.enumerated() {
                 if Task.isCancelled { break }
@@ -67,7 +70,7 @@ final class SpiderCrawlerService {
                 status = .crawling(source: currentSource, progress: progress)
 
                 if batchIndex < batches.count - 1 {
-                    try? await Task.sleep(for: .milliseconds(500))
+                    try? await Task.sleep(for: .seconds(1))
                 }
             }
 
@@ -100,34 +103,64 @@ final class SpiderCrawlerService {
     private func crawlSource(_ search: PlatformSearch, criteria: SearchCriteria) async -> [CrawlResult] {
         addLog("Crawling \(search.platformName)…", level: .info)
 
-        do {
-            let (data, response) = try await session.data(from: search.searchURL)
+        let maxRetries = 2
+        for attempt in 0...maxRetries {
+            if Task.isCancelled { return [] }
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                addLog("\(search.platformName): No response", level: .warning)
+            do {
+                var request = URLRequest(url: search.searchURL)
+                request.timeoutInterval = 45
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+
+                let (data, response) = try await session.data(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    addLog("\(search.platformName): No response", level: .warning)
+                    return []
+                }
+
+                if httpResponse.statusCode == 429 || (500...599).contains(httpResponse.statusCode) {
+                    if attempt < maxRetries {
+                        let delay = Double(attempt + 1) * 2.0
+                        addLog("\(search.platformName): HTTP \(httpResponse.statusCode), retrying in \(Int(delay))s…", level: .warning)
+                        try? await Task.sleep(for: .seconds(delay))
+                        continue
+                    }
+                    addLog("\(search.platformName): HTTP \(httpResponse.statusCode) after retries", level: .warning)
+                    return []
+                }
+
+                guard (200...399).contains(httpResponse.statusCode) else {
+                    addLog("\(search.platformName): HTTP \(httpResponse.statusCode)", level: .warning)
+                    return []
+                }
+
+                guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) else {
+                    addLog("\(search.platformName): Could not decode response", level: .warning)
+                    return []
+                }
+
+                let extracted = extractListings(from: html, source: search, criteria: criteria)
+                addLog("\(search.platformName): Found \(extracted.count) results", level: extracted.isEmpty ? .warning : .success)
+                return extracted
+
+            } catch is CancellationError {
+                return []
+            } catch let error as URLError where error.code == .timedOut || error.code == .networkConnectionLost {
+                if attempt < maxRetries {
+                    let delay = Double(attempt + 1) * 2.0
+                    addLog("\(search.platformName): Timeout, retrying in \(Int(delay))s…", level: .warning)
+                    try? await Task.sleep(for: .seconds(delay))
+                    continue
+                }
+                addLog("\(search.platformName): Timed out after \(maxRetries + 1) attempts", level: .error)
+                return []
+            } catch {
+                addLog("\(search.platformName): \(error.localizedDescription)", level: .error)
                 return []
             }
-
-            guard (200...399).contains(httpResponse.statusCode) else {
-                addLog("\(search.platformName): HTTP \(httpResponse.statusCode)", level: .warning)
-                return []
-            }
-
-            guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) else {
-                addLog("\(search.platformName): Could not decode response", level: .warning)
-                return []
-            }
-
-            let extracted = extractListings(from: html, source: search, criteria: criteria)
-            addLog("\(search.platformName): Found \(extracted.count) results", level: extracted.isEmpty ? .warning : .success)
-            return extracted
-
-        } catch is CancellationError {
-            return []
-        } catch {
-            addLog("\(search.platformName): \(error.localizedDescription)", level: .error)
-            return []
         }
+        return []
     }
 
     private func extractListings(from html: String, source: PlatformSearch, criteria: SearchCriteria) -> [CrawlResult] {

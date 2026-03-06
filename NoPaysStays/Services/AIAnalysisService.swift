@@ -46,7 +46,7 @@ enum AIAnalysisService {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 60
+        request.timeoutInterval = 120
 
         let body = ToolkitChatRequest(messages: [
             ToolkitMessage(role: "user", content: prompt)
