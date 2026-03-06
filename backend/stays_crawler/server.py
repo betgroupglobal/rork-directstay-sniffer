@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from stays_crawler.crawler import StaysCrawler
+from stays_crawler.extract import is_direct_property_url, normalize_url
 from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import CrawlRequest
 from stays_crawler.storage import CrawlStore
@@ -22,6 +25,9 @@ def build_crawler() -> StaysCrawler:
     ua_list = [item.strip() for item in os.getenv("CRAWLER_USER_AGENTS", "").split(",") if item.strip()]
     proxy_list = [item.strip() for item in os.getenv("CRAWLER_PROXIES", "").split(",") if item.strip()]
     db_path = os.getenv("CRAWLER_DB_PATH", "backend/.cache/crawler.db")
+    guesty_client_id = os.getenv("GUESTY_CLIENT_ID")
+    guesty_client_secret = os.getenv("GUESTY_CLIENT_SECRET")
+    guesty_api_base = os.getenv("GUESTY_API_BASE", "https://open-api.guesty.com")
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     fetcher = HttpFetcher(
         user_agent=ua,
@@ -32,7 +38,16 @@ def build_crawler() -> StaysCrawler:
         proxies=proxy_list or None,
     )
     store = CrawlStore(db_path=db_path)
-    return StaysCrawler(fetcher=fetcher, default_depth=depth, default_pages_per_source=pages, store=store, cache_ttl_seconds=cache_ttl)
+    return StaysCrawler(
+        fetcher=fetcher,
+        default_depth=depth,
+        default_pages_per_source=pages,
+        store=store,
+        cache_ttl_seconds=cache_ttl,
+        guesty_client_id=guesty_client_id,
+        guesty_client_secret=guesty_client_secret,
+        guesty_api_base=guesty_api_base,
+    )
 
 
 def handle_search_payload(payload: dict, crawler: StaysCrawler | None = None) -> tuple[int, dict]:
@@ -45,6 +60,85 @@ def handle_search_payload(payload: dict, crawler: StaysCrawler | None = None) ->
     return HTTPStatus.OK, response.to_dict()
 
 
+def handle_guesty_webhook(payload: dict, store: CrawlStore, event_type: str = "") -> tuple[int, dict]:
+    candidates = _extract_urls_from_payload(payload)
+    saved = 0
+    for url in candidates:
+        normalized = normalize_url(url)
+        if not is_direct_property_url(normalized):
+            continue
+        title = _best_title(payload)
+        location_hint = _best_location(payload)
+        snippet = event_type or "guesty webhook"
+        store.upsert_external_seed(source="guesty", url=normalized, title=title, snippet=snippet, location_hint=location_hint)
+        saved += 1
+    return HTTPStatus.OK, {"status": "ok", "saved": saved}
+
+
+def _verify_guesty_signature(raw_payload: str, signature: str) -> bool:
+    secret = os.getenv("GUESTY_WEBHOOK_SECRET", "").strip()
+    if not secret:
+        return True
+    if not signature:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), raw_payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    provided = signature.strip().lower()
+    if provided.startswith("sha256="):
+        provided = provided.split("=", 1)[1]
+    return hmac.compare_digest(expected, provided)
+
+
+def _extract_urls_from_payload(payload: object) -> list[str]:
+    found: list[str] = []
+    for value in _walk_values(payload):
+        if value.startswith("http://") or value.startswith("https://"):
+            found.append(value)
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for url in found:
+        if url in seen:
+            continue
+        dedup.append(url)
+        seen.add(url)
+    return dedup
+
+
+def _walk_values(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            out.extend(_walk_values(item))
+        return out
+    if isinstance(value, dict):
+        out: list[str] = []
+        for item in value.values():
+            out.extend(_walk_values(item))
+        return out
+    return []
+
+
+def _best_title(payload: dict) -> str:
+    for key in ("title", "name", "listingName", "nickname"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()[:220]
+    return "Guesty listing"
+
+
+def _best_location(payload: dict) -> str:
+    for key in ("city", "location", "address", "market"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()[:120]
+        if isinstance(value, dict):
+            city = value.get("city")
+            if isinstance(city, str) and city.strip():
+                return city.strip()[:120]
+    return ""
+
+
 class ApiHandler(BaseHTTPRequestHandler):
     crawler = build_crawler()
 
@@ -55,7 +149,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def do_POST(self) -> None:
-        if self.path != "/api/v1/crawl":
+        if self.path not in {"/api/v1/crawl", "/api/v1/webhooks/guesty"}:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         length = int(self.headers.get("Content-Length", "0"))
@@ -65,7 +159,14 @@ class ApiHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": "invalid json"})
             return
-        status, body = handle_search_payload(payload, self.crawler)
+        if self.path == "/api/v1/crawl":
+            status, body = handle_search_payload(payload, self.crawler)
+            self._send_json(status, body)
+            return
+        if not _verify_guesty_signature(raw, self.headers.get("X-Guesty-Signature", "")):
+            self._send_json(HTTPStatus.UNAUTHORIZED, {"error": "invalid webhook signature"})
+            return
+        status, body = handle_guesty_webhook(payload, self.crawler.store, self.headers.get("X-Guesty-Event", ""))
         self._send_json(status, body)
 
     def log_message(self, format: str, *args) -> None:

@@ -8,6 +8,7 @@ from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import BookingHit, CrawlRequest, CrawlResponse, SeedHit
 from stays_crawler.sources.base import SearchSource
 from stays_crawler.sources.forums import ForumTemplateSource
+from stays_crawler.sources.guesty import GuestySource
 from stays_crawler.sources.providers import ProviderSeedSource
 from stays_crawler.sources.search_engine import DuckDuckGoSource
 from stays_crawler.sources.social import RedditSocialSource
@@ -22,12 +23,18 @@ class StaysCrawler:
         default_pages_per_source: int = 20,
         store: CrawlStore | None = None,
         cache_ttl_seconds: int = 900,
+        guesty_client_id: str | None = None,
+        guesty_client_secret: str | None = None,
+        guesty_api_base: str = "https://open-api.guesty.com",
     ) -> None:
         self.fetcher = fetcher
         self.default_depth = max(0, default_depth)
         self.default_pages_per_source = max(1, default_pages_per_source)
         self.store = store or CrawlStore(":memory:")
         self.cache_ttl_seconds = max(0, cache_ttl_seconds)
+        self.guesty_client_id = guesty_client_id
+        self.guesty_client_secret = guesty_client_secret
+        self.guesty_api_base = guesty_api_base
 
     def crawl(self, request: CrawlRequest) -> CrawlResponse:
         depth_limit = self.default_depth if request.crawl_depth is None else max(0, request.crawl_depth)
@@ -110,6 +117,12 @@ class StaysCrawler:
         return [
             DuckDuckGoSource(self.fetcher),
             ProviderSeedSource(),
+            GuestySource(
+                store=self.store,
+                client_id=self.guesty_client_id,
+                client_secret=self.guesty_client_secret,
+                api_base=self.guesty_api_base,
+            ),
             ForumTemplateSource(self.fetcher),
             RedditSocialSource(self.fetcher),
         ]

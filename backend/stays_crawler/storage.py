@@ -25,6 +25,38 @@ class CrawlStore:
         self.db_path = db_path
         self._init_db()
 
+    def upsert_external_seed(self, source: str, url: str, title: str, snippet: str, location_hint: str = "") -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO external_seeds(source, url, title, snippet, location_hint, created_at)
+                VALUES(?, ?, ?, ?, ?, ?)
+                ON CONFLICT(source, url) DO UPDATE SET
+                    title = excluded.title,
+                    snippet = excluded.snippet,
+                    location_hint = excluded.location_hint,
+                    created_at = excluded.created_at
+                """,
+                (source, url, title[:220], snippet[:500], location_hint[:120], time.time()),
+            )
+            conn.commit()
+
+    def list_external_seeds(self, source: str, location: str, limit: int = 100) -> list[SeedHit]:
+        location_like = f"%{location.lower()}%"
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT url, source, title, snippet
+                FROM external_seeds
+                WHERE source = ?
+                  AND (LOWER(location_hint) LIKE ? OR LOWER(title) LIKE ? OR LOWER(snippet) LIKE ?)
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (source, location_like, location_like, location_like, max(1, limit)),
+            ).fetchall()
+        return [SeedHit(url=str(row[0]), source=str(row[1]), title=str(row[2]), snippet=str(row[3])) for row in rows]
+
     def make_request_key(self, request: CrawlRequest) -> str:
         payload = asdict(request)
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -146,6 +178,19 @@ class CrawlStore:
                     request_key TEXT PRIMARY KEY,
                     response_json TEXT NOT NULL,
                     created_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS external_seeds(
+                    source TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    snippet TEXT NOT NULL,
+                    location_hint TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    PRIMARY KEY(source, url)
                 )
                 """
             )
