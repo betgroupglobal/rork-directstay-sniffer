@@ -39,9 +39,15 @@ final class WebSearchAPIService {
         return []
     }
 
+    static let googleAPIKey = ""
+    static let googleCX = ""
+    static let bingAPIKey = ""
+    static let serpAPIKey = ""
+    static let braveAPIKey = ""
+
     private func googleSearch(query: String) async throws -> [WebSearchResult] {
-        let apiKey = Config.GOOGLE_API_KEY
-        let cx = Config.GOOGLE_CX
+        let apiKey = Self.googleAPIKey
+        let cx = Self.googleCX
         guard !apiKey.isEmpty, !cx.isEmpty else { throw SearchAPIError.notConfigured(.google) }
 
         var components = URLComponents(string: "https://www.googleapis.com/customsearch/v1")!
@@ -72,7 +78,7 @@ final class WebSearchAPIService {
     }
 
     private func bingSearch(query: String) async throws -> [WebSearchResult] {
-        let apiKey = Config.BING_API_KEY
+        let apiKey = Self.bingAPIKey
         guard !apiKey.isEmpty else { throw SearchAPIError.notConfigured(.bing) }
 
         var components = URLComponents(string: "https://api.bing.microsoft.com/v7.0/search")!
@@ -104,7 +110,7 @@ final class WebSearchAPIService {
     }
 
     private func serpAPISearch(query: String) async throws -> [WebSearchResult] {
-        let apiKey = Config.SERP_API_KEY
+        let apiKey = Self.serpAPIKey
         guard !apiKey.isEmpty else { throw SearchAPIError.notConfigured(.serpAPI) }
 
         var components = URLComponents(string: "https://serpapi.com/search.json")!
@@ -135,7 +141,7 @@ final class WebSearchAPIService {
     }
 
     private func braveSearch(query: String) async throws -> [WebSearchResult] {
-        let apiKey = Config.BRAVE_API_KEY
+        let apiKey = Self.braveAPIKey
         guard !apiKey.isEmpty else { throw SearchAPIError.notConfigured(.brave) }
 
         var components = URLComponents(string: "https://api.search.brave.com/res/v1/web/search")!
@@ -193,10 +199,10 @@ nonisolated enum SearchAPIProvider: String, CaseIterable, Sendable {
 
     static var configuredProviders: [SearchAPIProvider] {
         var providers: [SearchAPIProvider] = []
-        if !Config.SERP_API_KEY.isEmpty { providers.append(.serpAPI) }
-        if !Config.GOOGLE_API_KEY.isEmpty && !Config.GOOGLE_CX.isEmpty { providers.append(.google) }
-        if !Config.BING_API_KEY.isEmpty { providers.append(.bing) }
-        if !Config.BRAVE_API_KEY.isEmpty { providers.append(.brave) }
+        if !WebSearchAPIService.serpAPIKey.isEmpty { providers.append(.serpAPI) }
+        if !WebSearchAPIService.googleAPIKey.isEmpty && !WebSearchAPIService.googleCX.isEmpty { providers.append(.google) }
+        if !WebSearchAPIService.bingAPIKey.isEmpty { providers.append(.bing) }
+        if !WebSearchAPIService.braveAPIKey.isEmpty { providers.append(.brave) }
         return providers
     }
 }

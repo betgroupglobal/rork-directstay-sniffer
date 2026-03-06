@@ -69,10 +69,10 @@ struct SettingsView: View {
                 }
 
                 Section("Search API Status") {
-                    apiStatusRow("Google Custom Search", configured: !Config.GOOGLE_API_KEY.isEmpty && !Config.GOOGLE_CX.isEmpty)
-                    apiStatusRow("Bing Web Search", configured: !Config.BING_API_KEY.isEmpty)
-                    apiStatusRow("SerpAPI", configured: !Config.SERP_API_KEY.isEmpty)
-                    apiStatusRow("Brave Search", configured: !Config.BRAVE_API_KEY.isEmpty)
+                    apiStatusRow("Google Custom Search", configured: !WebSearchAPIService.googleAPIKey.isEmpty && !WebSearchAPIService.googleCX.isEmpty)
+                    apiStatusRow("Bing Web Search", configured: !WebSearchAPIService.bingAPIKey.isEmpty)
+                    apiStatusRow("SerpAPI", configured: !WebSearchAPIService.serpAPIKey.isEmpty)
+                    apiStatusRow("Brave Search", configured: !WebSearchAPIService.braveAPIKey.isEmpty)
 
                     if SearchAPIProvider.configuredProviders.isEmpty {
                         HStack(spacing: 8) {
@@ -124,7 +124,7 @@ struct SettingsView: View {
             Spacer()
             Text(configured ? "Active" : "Not Set")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(configured ? AppTheme.savingsGreen : .tertiary)
+                .foregroundStyle(configured ? AppTheme.savingsGreen : Color.secondary)
         }
     }
 }
