@@ -67,3 +67,8 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Launch browser app on Vercel
 - Deployed `web/` as a standalone Vercel project.
 - Confirmed production alias is live and serving the browser UI.
+
+### [x] Step: Enhance crawl progress loading animation in browser UI
+- Added a custom scan loader block with pulse/orbit animation and progress meter in `web/index.html` and `web/styles.css`.
+- Wired phased, mode-aware progress updates in `web/app.js` during active crawl/API requests.
+- Validated updated browser script syntax (`node --check web/app.js`).

@@ -79,6 +79,17 @@
           <span id="meta"></span>
         </div>
         <p id="status" class="status">Enter criteria and run search.</p>
+        <div id="loader" class="loader" aria-hidden="true">
+          <div class="scan-field">
+            <div class="scan-ping"></div>
+            <div class="scan-ping delay"></div>
+            <div class="scan-dot"></div>
+          </div>
+          <div class="loader-info">
+            <div id="phaseLabel" class="phase-label">Preparing crawl</div>
+            <div class="meter"><span id="meterBar"></span></div>
+          </div>
+        </div>
         <ul id="results" class="results"></ul>
       </section>
     </main>

@@ -117,6 +117,87 @@ button:hover { filter: brightness(1.05); }
 
 .status { margin: 0.6rem 0; color: #5a565f; }
 
+.loader {
+  display: none;
+  grid-template-columns: 72px 1fr;
+  gap: 0.8rem;
+  align-items: center;
+  margin: 0.6rem 0 0.9rem;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(120deg, #fff7ef, #fffdf9);
+}
+
+.loader.active { display: grid; }
+
+.scan-field {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(13, 143, 97, 0.2), rgba(13, 143, 97, 0.05));
+  overflow: hidden;
+}
+
+.scan-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(13, 143, 97, 0.5);
+  animation: ping 1.8s ease-out infinite;
+}
+
+.scan-ping.delay { animation-delay: 0.9s; }
+
+.scan-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 14px rgba(13, 143, 97, 0.8);
+  top: 27px;
+  left: 27px;
+  animation: orbit 1.8s linear infinite;
+}
+
+.loader-info {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.phase-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #3c5649;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: #f0dfcf;
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  width: 8%;
+  background: linear-gradient(90deg, var(--ok), #52b68f);
+  transition: width 320ms ease;
+}
+
+@keyframes ping {
+  0% { transform: scale(0.15); opacity: 0.9; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(24px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(24px) rotate(-360deg); }
+}
+
 .results {
   margin: 0;
   padding: 0;

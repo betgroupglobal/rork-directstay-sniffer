@@ -1,10 +1,65 @@
-const form = document.getElementById('search-form');
+const formEl = document.getElementById('search-form');
 const statusEl = document.getElementById('status');
 const listEl = document.getElementById('results');
 const metaEl = document.getElementById('meta');
 const buttonEl = document.getElementById('submitBtn');
+const loaderEl = document.getElementById('loader');
+const phaseLabelEl = document.getElementById('phaseLabel');
+const meterBarEl = document.getElementById('meterBar');
 
 const byId = (id) => document.getElementById(id);
+
+const PHASES = {
+  crawl: ['Mapping targets', 'Probing listings', 'Scoring direct links', 'Refining top matches'],
+  airbnb: ['Querying provider', 'Normalizing listing URLs', 'Filtering valid stays', 'Assembling results'],
+};
+
+let progressTimer = null;
+let progressValue = 8;
+let phaseIndex = 0;
+
+function stopProgress(success) {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+
+  if (success) {
+    progressValue = 100;
+    meterBarEl.style.width = '100%';
+    phaseLabelEl.textContent = 'Complete';
+    setTimeout(() => {
+      loaderEl.classList.remove('active');
+      loaderEl.setAttribute('aria-hidden', 'true');
+    }, 350);
+    return;
+  }
+
+  loaderEl.classList.remove('active');
+  loaderEl.setAttribute('aria-hidden', 'true');
+}
+
+function startProgress(mode) {
+  stopProgress(false);
+  const phases = PHASES[mode] || PHASES.crawl;
+  progressValue = 8;
+  phaseIndex = 0;
+
+  loaderEl.classList.add('active');
+  loaderEl.setAttribute('aria-hidden', 'false');
+  meterBarEl.style.width = `${progressValue}%`;
+  phaseLabelEl.textContent = phases[0];
+
+  progressTimer = setInterval(() => {
+    progressValue = Math.min(93, progressValue + 3 + Math.random() * 6);
+    meterBarEl.style.width = `${Math.round(progressValue)}%`;
+
+    if (Math.random() > 0.42 && phaseIndex < phases.length - 1) {
+      phaseIndex += 1;
+      phaseLabelEl.textContent = phases[phaseIndex];
+    }
+  }, 420);
+}
 
 function buildPayload() {
   const payload = {
@@ -46,7 +101,7 @@ function renderItems(items, mode) {
   }
 }
 
-form.addEventListener('submit', async (event) => {
+formEl.addEventListener('submit', async (event) => {
   event.preventDefault();
   const base = byId('baseUrl').value.replace(/\/$/, '');
   const mode = byId('mode').value;
@@ -63,6 +118,7 @@ form.addEventListener('submit', async (event) => {
   statusEl.textContent = `Calling ${endpoint}...`;
   listEl.innerHTML = '';
   metaEl.textContent = '';
+  startProgress(mode);
 
   try {
     const response = await fetch(`${base}${endpoint}`, {
@@ -77,7 +133,9 @@ form.addEventListener('submit', async (event) => {
     const items = Array.isArray(body.results) ? body.results : [];
     metaEl.textContent = `${body.total ?? items.length} result(s)`;
     renderItems(items, mode);
+    stopProgress(true);
   } catch (error) {
+    stopProgress(false);
     statusEl.textContent = `Error: ${error.message}`;
   } finally {
     buttonEl.disabled = false;
