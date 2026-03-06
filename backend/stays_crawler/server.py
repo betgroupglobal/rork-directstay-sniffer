@@ -8,15 +8,31 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from stays_crawler.crawler import StaysCrawler
 from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import CrawlRequest
+from stays_crawler.storage import CrawlStore
 
 
 def build_crawler() -> StaysCrawler:
     timeout = int(os.getenv("CRAWLER_TIMEOUT_SECONDS", "8"))
     depth = int(os.getenv("CRAWLER_DEFAULT_DEPTH", "1"))
     pages = int(os.getenv("CRAWLER_MAX_PAGES_PER_SOURCE", "20"))
+    retries = int(os.getenv("CRAWLER_RETRY_COUNT", "2"))
+    backoff = float(os.getenv("CRAWLER_RETRY_BACKOFF_SECONDS", "0.5"))
+    cache_ttl = int(os.getenv("CRAWLER_CACHE_TTL_SECONDS", "900"))
     ua = os.getenv("CRAWLER_USER_AGENT", "NoPaysStaysCrawler/1.0 (+https://example.com)")
-    fetcher = HttpFetcher(user_agent=ua, timeout_seconds=timeout)
-    return StaysCrawler(fetcher=fetcher, default_depth=depth, default_pages_per_source=pages)
+    ua_list = [item.strip() for item in os.getenv("CRAWLER_USER_AGENTS", "").split(",") if item.strip()]
+    proxy_list = [item.strip() for item in os.getenv("CRAWLER_PROXIES", "").split(",") if item.strip()]
+    db_path = os.getenv("CRAWLER_DB_PATH", "backend/.cache/crawler.db")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    fetcher = HttpFetcher(
+        user_agent=ua,
+        timeout_seconds=timeout,
+        retry_count=retries,
+        retry_backoff_seconds=backoff,
+        user_agents=ua_list or None,
+        proxies=proxy_list or None,
+    )
+    store = CrawlStore(db_path=db_path)
+    return StaysCrawler(fetcher=fetcher, default_depth=depth, default_pages_per_source=pages, store=store, cache_ttl_seconds=cache_ttl)
 
 
 def handle_search_payload(payload: dict, crawler: StaysCrawler | None = None) -> tuple[int, dict]:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import deque
+from collections import defaultdict
 from urllib.parse import urlparse
 
 from stays_crawler.extract import compute_relevance, extract_links, is_likely_booking_url, normalize_url, tokenize
@@ -8,86 +8,108 @@ from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import BookingHit, CrawlRequest, CrawlResponse, SeedHit
 from stays_crawler.sources.base import SearchSource
 from stays_crawler.sources.forums import ForumTemplateSource
+from stays_crawler.sources.providers import ProviderSeedSource
 from stays_crawler.sources.search_engine import DuckDuckGoSource
 from stays_crawler.sources.social import RedditSocialSource
+from stays_crawler.storage import CrawlStore, QueueItem
 
 
 class StaysCrawler:
-    def __init__(self, fetcher: HttpFetcher, default_depth: int = 1, default_pages_per_source: int = 20) -> None:
+    def __init__(
+        self,
+        fetcher: HttpFetcher,
+        default_depth: int = 1,
+        default_pages_per_source: int = 20,
+        store: CrawlStore | None = None,
+        cache_ttl_seconds: int = 900,
+    ) -> None:
         self.fetcher = fetcher
         self.default_depth = max(0, default_depth)
         self.default_pages_per_source = max(1, default_pages_per_source)
+        self.store = store or CrawlStore(":memory:")
+        self.cache_ttl_seconds = max(0, cache_ttl_seconds)
 
     def crawl(self, request: CrawlRequest) -> CrawlResponse:
-        depth = self.default_depth if request.crawl_depth is None else max(0, request.crawl_depth)
+        depth_limit = self.default_depth if request.crawl_depth is None else max(0, request.crawl_depth)
         pages_per_source = self.default_pages_per_source if request.max_pages_per_source is None else max(1, request.max_pages_per_source)
+        request_key = self.store.make_request_key(request)
+        cached = self.store.get_cached_response(request_key, self.cache_ttl_seconds)
+        if cached is not None:
+            return _trim(cached, request.max_results)
         sources = self._build_sources()
         all_seed_hits: list[SeedHit] = []
         for source in sources:
             all_seed_hits.extend(source.discover(request))
+        self.store.reset_processing(request_key)
+        self.store.enqueue_seeds(request_key, all_seed_hits, depth=0)
         query_terms = self._build_terms(request)
         scored: dict[str, BookingHit] = {}
-        for seed in all_seed_hits:
-            for item in self._scan_seed(seed, query_terms, depth, pages_per_source):
-                existing = scored.get(item.booking_url)
-                if existing is None or item.score > existing.score:
-                    scored[item.booking_url] = item
-        results = sorted(scored.values(), key=lambda hit: hit.score, reverse=True)[: request.max_results]
-        query_text = " ".join(query_terms)
-        return CrawlResponse(query=query_text, total=len(results), results=results)
+        processed_by_source: dict[str, int] = defaultdict(int)
+        while True:
+            item = self.store.pop_next_pending(request_key)
+            if item is None:
+                break
+            if processed_by_source[item.source] >= pages_per_source:
+                self.store.mark_done(item.item_id)
+                continue
+            processed_by_source[item.source] += 1
+            for hit in self._scan_item(item, query_terms, depth_limit, request_key):
+                existing = scored.get(hit.booking_url)
+                if existing is None or hit.score > existing.score:
+                    scored[hit.booking_url] = hit
+            self.store.mark_done(item.item_id)
+        results = sorted(scored.values(), key=lambda hit: hit.score, reverse=True)
+        response = CrawlResponse(query=" ".join(query_terms), total=min(len(results), request.max_results), results=results[: request.max_results])
+        self.store.set_cached_response(request_key, response)
+        return response
 
-    def _scan_seed(self, seed: SeedHit, query_terms: list[str], max_depth: int, max_pages: int) -> list[BookingHit]:
-        queue: deque[tuple[str, int]] = deque([(seed.url, 0)])
-        visited: set[str] = set()
+    def _scan_item(self, item: QueueItem, query_terms: list[str], depth_limit: int, request_key: str) -> list[BookingHit]:
+        current_url = normalize_url(item.url)
+        page = self.fetcher.fetch(current_url)
+        if not page or page.status >= 400:
+            return []
+        snippet = page.text[:1200]
+        title = item.title or ""
         outputs: list[BookingHit] = []
-        pages_seen = 0
-        while queue and pages_seen < max_pages:
-            current_url, depth = queue.popleft()
-            current_url = normalize_url(current_url)
-            if current_url in visited:
-                continue
-            visited.add(current_url)
-            page = self.fetcher.fetch(current_url)
-            if not page or page.status >= 400:
-                continue
-            pages_seen += 1
-            snippet = page.text[:1200]
-            title = seed.title
-            score, matched = compute_relevance(title, snippet, query_terms, current_url)
-            if is_likely_booking_url(current_url, title) and score > 0:
+        score, matched = compute_relevance(title, snippet, query_terms, current_url)
+        if is_likely_booking_url(current_url, title) and score > 0:
+            outputs.append(
+                BookingHit(
+                    booking_url=current_url,
+                    source=item.source,
+                    discovered_on=current_url,
+                    title=title[:220],
+                    snippet=snippet[:300],
+                    score=score,
+                    matched_terms=matched,
+                )
+            )
+        links = extract_links(page.text, current_url)
+        queued_links: list[tuple[str, str, str]] = []
+        for link, anchor_text in links:
+            link_score, link_matched = compute_relevance(anchor_text, snippet[:240], query_terms, link)
+            if is_likely_booking_url(link, anchor_text) and link_score > 0:
                 outputs.append(
                     BookingHit(
-                        booking_url=current_url,
-                        source=seed.source,
+                        booking_url=link,
+                        source=item.source,
                         discovered_on=current_url,
-                        title=title[:220],
+                        title=anchor_text[:220] or title[:220],
                         snippet=snippet[:300],
-                        score=score,
-                        matched_terms=matched,
+                        score=link_score + 1.0,
+                        matched_terms=link_matched,
                     )
                 )
-            links = extract_links(page.text, current_url)
-            for link, anchor_text in links:
-                link_score, link_matched = compute_relevance(anchor_text, snippet[:240], query_terms, link)
-                if is_likely_booking_url(link, anchor_text) and link_score > 0:
-                    outputs.append(
-                        BookingHit(
-                            booking_url=link,
-                            source=seed.source,
-                            discovered_on=current_url,
-                            title=anchor_text[:220] or seed.title[:220],
-                            snippet=snippet[:300],
-                            score=link_score + 1.0,
-                            matched_terms=link_matched,
-                        )
-                    )
-                if depth < max_depth and _is_same_site(current_url, link):
-                    queue.append((link, depth + 1))
+            if item.depth < depth_limit and _is_same_site(current_url, link):
+                queued_links.append((link, item.source, anchor_text[:220] or title[:220]))
+        if queued_links:
+            self.store.enqueue_links(request_key, queued_links, depth=item.depth + 1)
         return outputs
 
     def _build_sources(self) -> list[SearchSource]:
         return [
             DuckDuckGoSource(self.fetcher),
+            ProviderSeedSource(),
             ForumTemplateSource(self.fetcher),
             RedditSocialSource(self.fetcher),
         ]
@@ -119,3 +141,8 @@ class StaysCrawler:
 
 def _is_same_site(source: str, target: str) -> bool:
     return urlparse(source).netloc.lower() == urlparse(target).netloc.lower()
+
+
+def _trim(response: CrawlResponse, max_results: int) -> CrawlResponse:
+    trimmed = response.results[:max_results]
+    return CrawlResponse(query=response.query, total=len(trimmed), results=trimmed)
