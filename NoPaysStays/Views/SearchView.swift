@@ -28,7 +28,7 @@ struct SearchView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Deep Search")
+            .navigationTitle("NoPays Stays")
             .navigationBarTitleDisplayMode(.large)
             .scrollDismissesKeyboard(.interactively)
             .sheet(isPresented: $showResults) {
@@ -60,24 +60,25 @@ struct SearchView: View {
                 }
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 Image(systemName: "binoculars.fill")
-                    .font(.system(size: 34))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 36))
+                    .foregroundStyle(.white.opacity(0.95))
                     .symbolEffect(.pulse, options: .repeating.speed(0.3))
 
-                Text("Hunt Direct Stays")
-                    .font(.title.weight(.bold))
+                Text("Find Direct Bookings")
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
 
-                Text("Search \(searchLinkCount) platforms & engines simultaneously")
+                Text("Skip the 15-20% OTA fees — the app hunts\n\(searchLinkCount) sources for you automatically")
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
             }
-            .padding(.top, 16)
-            .padding(.bottom, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 20)
         }
-        .frame(height: 180)
+        .frame(height: 175)
     }
 
     private var searchLinkCount: Int {
@@ -98,7 +99,7 @@ struct SearchView: View {
 
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Location", systemImage: "mappin.and.ellipse")
+            Label("Where are you going?", systemImage: "mappin.and.ellipse")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.burntOrange)
 
@@ -281,13 +282,13 @@ struct SearchView: View {
             viewModel.performSearch()
             showResults = true
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
+            HStack(spacing: 10) {
+                Image(systemName: "binoculars.fill")
                     .font(.headline)
                 VStack(spacing: 2) {
-                    Text("Launch Deep Search")
+                    Text("Hunt Direct Bookings")
                         .font(.headline)
-                    Text("\(searchLinkCount) platforms · \(locationQuery.isEmpty ? "Enter location" : locationQuery)")
+                    Text("\(searchLinkCount) sources · auto-opens each in-app")
                         .font(.caption2)
                         .opacity(0.85)
                 }

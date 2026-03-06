@@ -9,11 +9,13 @@ final class AppViewModel {
     var savedFinds: [SavedFind] = []
     var isSearching: Bool = false
     var hasSearched: Bool = false
+    var checkedLinks: Set<String> = []
 
     func performSearch() {
         guard !currentCriteria.location.isEmpty else { return }
         isSearching = true
         searchResults = DeepSearchService.generateSearchLinks(for: currentCriteria)
+        checkedLinks.removeAll()
 
         if !searchHistory.contains(where: {
             $0.location == currentCriteria.location &&
@@ -34,6 +36,18 @@ final class AppViewModel {
     func rerunSearch(_ criteria: SearchCriteria) {
         currentCriteria = criteria
         performSearch()
+    }
+
+    func markLinkChecked(_ id: String) {
+        checkedLinks.insert(id)
+    }
+
+    func unmarkLinkChecked(_ id: String) {
+        checkedLinks.remove(id)
+    }
+
+    func clearCheckedLinks() {
+        checkedLinks.removeAll()
     }
 
     func clearHistory() {

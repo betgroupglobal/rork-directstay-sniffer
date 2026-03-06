@@ -11,17 +11,15 @@ struct HistoryView: View {
                     ContentUnavailableView(
                         "No Search History",
                         systemImage: "clock.arrow.circlepath",
-                        description: Text("Your deep searches will appear here")
+                        description: Text("Your hunts will appear here")
                     )
                 } else {
                     List {
                         ForEach(Array(viewModel.searchHistory.enumerated()), id: \.element.id) { index, criteria in
-                            HistoryRow(criteria: criteria) {
-                                viewModel.rerunSearch(criteria)
-                            }
-                            .opacity(appeared ? 1 : 0)
-                            .offset(y: appeared ? 0 : 12)
-                            .animation(.spring(response: 0.4).delay(Double(index) * 0.04), value: appeared)
+                            HistoryRow(criteria: criteria)
+                                .opacity(appeared ? 1 : 0)
+                                .offset(y: appeared ? 0 : 12)
+                                .animation(.spring(response: 0.4).delay(Double(index) * 0.04), value: appeared)
                         }
                         .onDelete { offsets in
                             for index in offsets {
@@ -50,7 +48,6 @@ struct HistoryView: View {
 
 struct HistoryRow: View {
     let criteria: SearchCriteria
-    let onRerun: () -> Void
     @State private var showResults: Bool = false
     @Environment(AppViewModel.self) private var viewModel
 

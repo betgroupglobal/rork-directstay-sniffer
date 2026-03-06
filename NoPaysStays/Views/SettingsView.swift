@@ -25,7 +25,7 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("NoPays Stays")
                                 .font(.headline)
-                            Text("Deep search tool for direct bookings")
+                            Text("Automated direct booking hunter")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -36,7 +36,7 @@ struct SettingsView: View {
 
                 Section("Search Stats") {
                     HStack {
-                        Label("Searches Performed", systemImage: "magnifyingglass")
+                        Label("Hunts Completed", systemImage: "binoculars.fill")
                         Spacer()
                         Text("\(viewModel.searchHistory.count)")
                             .foregroundStyle(.secondary)
@@ -51,35 +51,35 @@ struct SettingsView: View {
 
                 Section("How It Works") {
                     VStack(alignment: .leading, spacing: 12) {
-                        StepRow(number: 1, title: "Enter Criteria", description: "Location, dates, bedrooms, bathrooms, guests", icon: "pencil.circle.fill")
-                        StepRow(number: 2, title: "Launch Deep Search", description: "Generates targeted links across 20+ platforms", icon: "bolt.circle.fill")
-                        StepRow(number: 3, title: "Hunt & Compare", description: "Open links in Safari, find direct bookings", icon: "safari.fill")
-                        StepRow(number: 4, title: "Save Finds", description: "Bookmark the best deals for later", icon: "bookmark.circle.fill")
+                        StepRow(number: 1, title: "Set Your Criteria", description: "Location, dates, bedrooms, bathrooms, guests", icon: "pencil.circle.fill")
+                        StepRow(number: 2, title: "Launch the Hunt", description: "App generates 30+ targeted search queries", icon: "bolt.circle.fill")
+                        StepRow(number: 3, title: "Auto-Hunt Mode", description: "Opens each source in-app — close to advance to next", icon: "binoculars.circle.fill")
+                        StepRow(number: 4, title: "Save Direct Finds", description: "Bookmark the best deals you discover", icon: "bookmark.circle.fill")
                     }
                     .listRowBackground(Color.clear)
                 }
 
                 Section("Platforms Searched") {
+                    PlatformGroupRow(title: "Direct Booking", count: "2+", description: "Owner contacts, microsites, phone/email extraction", color: AppTheme.savingsGreen)
                     PlatformGroupRow(title: "Alternative Platforms", count: "9", description: "Stayz, Vrbo, OwnerDirect, Youcamp, Riparide, Holidaypaws, Hometime, Holiday Houses, Fairbnb", color: AppTheme.burntOrange)
                     PlatformGroupRow(title: "Classifieds", count: "4", description: "Gumtree, Facebook Marketplace, Domain Holiday, REA Holiday", color: AppTheme.amber)
                     PlatformGroupRow(title: "Search Engines", count: "7", description: "Google deep queries, Bing, DuckDuckGo — excluding OTAs", color: AppTheme.coral)
                     PlatformGroupRow(title: "Social & Forums", count: "3", description: "Facebook Groups, Reddit, Whirlpool", color: AppTheme.dustyPurple)
                     PlatformGroupRow(title: "Tourism Directories", count: "5", description: "Visit NSW/VIC/QLD, WA Tourism, Local Councils", color: .blue)
-                    PlatformGroupRow(title: "Direct Booking", count: "2+", description: "Owner contacts, microsites, phone/email extraction", color: AppTheme.savingsGreen)
                 }
 
                 Section("About") {
                     HStack {
                         Label("Version", systemImage: "info.circle")
                         Spacer()
-                        Text("2.0.0")
+                        Text("2.1.0")
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 Section {
                     VStack(spacing: 4) {
-                        Text("NoPays Stays generates deep search links to help you find holiday rentals outside the 15-20% OTA fee grinder. Every link opens in Safari — you do the hunting.")
+                        Text("NoPays Stays automates the hunt for direct holiday bookings. Instead of manually searching 30+ platforms, the app does it for you — opening each source in-app so you can check, save, and move on.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)

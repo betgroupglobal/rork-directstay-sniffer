@@ -4,6 +4,7 @@ struct SavedFindsView: View {
     @Environment(AppViewModel.self) private var viewModel
     @State private var showAddSheet: Bool = false
     @State private var appeared: Bool = false
+    @State private var browserURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -12,12 +13,12 @@ struct SavedFindsView: View {
                     ContentUnavailableView(
                         "No Saved Finds",
                         systemImage: "bookmark.slash",
-                        description: Text("Save interesting links from search results to collect them here")
+                        description: Text("Save direct booking links from your hunt results")
                     )
                 } else {
                     List {
                         ForEach(Array(viewModel.savedFinds.enumerated()), id: \.element.id) { index, find in
-                            SavedFindRow(find: find)
+                            SavedFindRow(find: find, browserURL: $browserURL)
                                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                                 .opacity(appeared ? 1 : 0)
                                 .offset(y: appeared ? 0 : 15)
@@ -46,17 +47,24 @@ struct SavedFindsView: View {
             .sheet(isPresented: $showAddSheet) {
                 AddSavedFindView()
             }
+            .fullScreenCover(item: $browserURL) { url in
+                SafariWebView(url: url) {
+                    browserURL = nil
+                }
+                .ignoresSafeArea()
+            }
         }
     }
 }
 
 struct SavedFindRow: View {
     let find: SavedFind
+    @Binding var browserURL: URL?
 
     var body: some View {
         Button {
             if let url = URL(string: find.url) {
-                UIApplication.shared.open(url)
+                browserURL = url
             }
         } label: {
             HStack(spacing: 12) {
