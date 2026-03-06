@@ -11,11 +11,12 @@ final class SpiderCrawlerService {
 
     private var crawlTask: Task<Void, Never>?
     private let session: URLSession
+    private let searchAPI = WebSearchAPIService()
 
     init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 45
-        config.timeoutIntervalForResource = 90
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
         config.httpAdditionalHeaders = [
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -33,44 +34,34 @@ final class SpiderCrawlerService {
         logs = []
         crawledCount = 0
 
-        let platformSearches = DeepSearchService.generateSearchLinks(for: criteria)
-        totalSources = platformSearches.count
+        let platformSearches = DeepSearchService.generatePlatformSearches(for: criteria)
+        let apiQueries = DeepSearchService.generateAPIQueries(for: criteria)
+
+        totalSources = platformSearches.count + apiQueries.count
         status = .crawling(source: "Initializing…", progress: 0)
 
+        let hasAPIs = !SearchAPIProvider.configuredProviders.isEmpty
         addLog("Spider started — \(totalSources) sources to crawl", level: .info)
         addLog("Target: \(criteria.location) · \(criteria.guests) guests · \(criteria.bedrooms) bed", level: .info)
+        if hasAPIs {
+            let names = SearchAPIProvider.configuredProviders.map(\.rawValue).joined(separator: ", ")
+            addLog("API providers: \(names)", level: .success)
+        } else {
+            addLog("No search APIs configured — using HTML fallback", level: .warning)
+        }
 
         crawlTask = Task { [weak self] in
             guard let self else { return }
 
-            let batches = platformSearches.chunked(into: 2)
-
-            for (batchIndex, batch) in batches.enumerated() {
-                if Task.isCancelled { break }
-
-                await withTaskGroup(of: [CrawlResult].self) { group in
-                    for search in batch {
-                        group.addTask { [weak self] in
-                            guard let self else { return [] }
-                            await self.updateCurrentSource(search.platformName)
-                            return await self.crawlSource(search, criteria: criteria)
-                        }
-                    }
-
-                    for await batchResults in group {
-                        if Task.isCancelled { break }
-                        for result in batchResults {
-                            self.appendResult(result)
-                        }
-                    }
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    await self.crawlAPISources(apiQueries, criteria: criteria)
                 }
 
-                crawledCount += batch.count
-                let progress = Double(crawledCount) / Double(totalSources)
-                status = .crawling(source: currentSource, progress: progress)
-
-                if batchIndex < batches.count - 1 {
-                    try? await Task.sleep(for: .seconds(1))
+                group.addTask { [weak self] in
+                    guard let self else { return }
+                    await self.crawlDirectSources(platformSearches, criteria: criteria)
                 }
             }
 
@@ -92,12 +83,112 @@ final class SpiderCrawlerService {
         }
     }
 
-    private func updateCurrentSource(_ name: String) {
-        currentSource = name
+    private func crawlAPISources(_ queries: [APISearchQuery], criteria: SearchCriteria) async {
+        let batches = queries.chunked(into: 3)
+
+        for (batchIndex, batch) in batches.enumerated() {
+            if Task.isCancelled { break }
+
+            await withTaskGroup(of: [CrawlResult].self) { group in
+                for query in batch {
+                    group.addTask { [weak self] in
+                        guard let self else { return [] }
+                        await self.updateCurrentSource("API: \(query.label)")
+                        return await self.crawlAPIQuery(query, criteria: criteria)
+                    }
+                }
+
+                for await batchResults in group {
+                    if Task.isCancelled { break }
+                    for result in batchResults {
+                        appendResult(result)
+                    }
+                }
+            }
+
+            crawledCount += batch.count
+            let progress = Double(crawledCount) / Double(totalSources)
+            status = .crawling(source: currentSource, progress: progress)
+
+            if batchIndex < batches.count - 1 {
+                try? await Task.sleep(for: .seconds(0.5))
+            }
+        }
     }
 
-    private func appendResult(_ result: CrawlResult) {
-        results.append(result)
+    private func crawlDirectSources(_ searches: [PlatformSearch], criteria: SearchCriteria) async {
+        let batches = searches.chunked(into: 2)
+
+        for (batchIndex, batch) in batches.enumerated() {
+            if Task.isCancelled { break }
+
+            await withTaskGroup(of: [CrawlResult].self) { group in
+                for search in batch {
+                    group.addTask { [weak self] in
+                        guard let self else { return [] }
+                        await self.updateCurrentSource(search.platformName)
+                        return await self.crawlSource(search, criteria: criteria)
+                    }
+                }
+
+                for await batchResults in group {
+                    if Task.isCancelled { break }
+                    for result in batchResults {
+                        appendResult(result)
+                    }
+                }
+            }
+
+            crawledCount += batch.count
+            let progress = Double(crawledCount) / Double(totalSources)
+            status = .crawling(source: currentSource, progress: progress)
+
+            if batchIndex < batches.count - 1 {
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    private func crawlAPIQuery(_ query: APISearchQuery, criteria: SearchCriteria) async -> [CrawlResult] {
+        addLog("API searching: \(query.label)…", level: .info)
+
+        do {
+            let results = await searchAPI.searchAllProviders(query: query.query)
+
+            if results.isEmpty {
+                addLog("\(query.label): No API results", level: .warning)
+                return []
+            }
+
+            var crawlResults: [CrawlResult] = []
+            for result in results {
+                if isOTADomain(result.url) { continue }
+                if isSearchEngineDomain(result.url) { continue }
+                if result.url.count < 15 { continue }
+
+                let likelihood = assessDirectBookingLikelihood(
+                    url: result.url,
+                    snippet: result.snippet,
+                    category: query.category
+                )
+
+                crawlResults.append(CrawlResult(
+                    title: cleanText(result.title),
+                    url: result.url,
+                    snippet: cleanText(result.snippet),
+                    sourcePlatform: query.label,
+                    category: query.category,
+                    feeIndicator: query.feeIndicator,
+                    directBookingLikelihood: likelihood,
+                    ownerContact: extractContactFromText(result.snippet),
+                    priceHint: extractPriceFromText(result.snippet)
+                ))
+            }
+
+            addLog("\(query.label): \(crawlResults.count) results via \(results.first?.source.rawValue ?? "API")", level: crawlResults.isEmpty ? .warning : .success)
+            return crawlResults
+
+        }
     }
 
     private func crawlSource(_ search: PlatformSearch, criteria: SearchCriteria) async -> [CrawlResult] {
@@ -109,7 +200,7 @@ final class SpiderCrawlerService {
 
             do {
                 var request = URLRequest(url: search.searchURL)
-                request.timeoutInterval = 45
+                request.timeoutInterval = 30
                 request.cachePolicy = .reloadIgnoringLocalCacheData
 
                 let (data, response) = try await session.data(for: request)
@@ -163,6 +254,14 @@ final class SpiderCrawlerService {
         return []
     }
 
+    private func updateCurrentSource(_ name: String) {
+        currentSource = name
+    }
+
+    private func appendResult(_ result: CrawlResult) {
+        results.append(result)
+    }
+
     private func extractListings(from html: String, source: PlatformSearch, criteria: SearchCriteria) -> [CrawlResult] {
         var found: [CrawlResult] = []
 
@@ -177,13 +276,13 @@ final class SpiderCrawlerService {
                 let link = links[i]
 
                 if isOTADomain(link) { continue }
-                if link.contains("google.com") || link.contains("bing.com") || link.contains("duckduckgo.com") { continue }
+                if isSearchEngineDomain(link) { continue }
                 if link.count < 15 { continue }
 
                 let title = i < titles.count ? titles[i] : extractDomainName(from: link)
                 let snippet = i < snippets.count ? snippets[i] : ""
                 let price = i < prices.count ? prices[i] : nil
-                let likelihood = assessDirectBookingLikelihood(url: link, html: html, category: source.category)
+                let likelihood = assessDirectBookingLikelihood(url: link, snippet: html, category: source.category)
 
                 found.append(CrawlResult(
                     title: cleanText(title),
@@ -339,6 +438,33 @@ final class SpiderCrawlerService {
         return nil
     }
 
+    private func extractContactFromText(_ text: String) -> String? {
+        let emailPattern = #"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"#
+        let phonePattern = #"(?:\+61|0)[2-478][\s\-]?\d{4}[\s\-]?\d{4}"#
+
+        if let regex = try? NSRegularExpression(pattern: emailPattern),
+           let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) {
+            let email = (text as NSString).substring(with: match.range)
+            if !email.contains("example") && !email.contains("noreply") { return email }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: phonePattern),
+           let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) {
+            return (text as NSString).substring(with: match.range)
+        }
+
+        return nil
+    }
+
+    private func extractPriceFromText(_ text: String) -> String? {
+        let pattern = #"\$\s*\d{2,4}(?:\s*(?:per|/)\s*(?:night|pn|p/n))?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+              let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) else {
+            return nil
+        }
+        return (text as NSString).substring(with: match.range)
+    }
+
     private func extractPageTitle(from html: String) -> String {
         let pattern = #"<title[^>]*>([^<]+)</title>"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
@@ -367,7 +493,12 @@ final class SpiderCrawlerService {
         return otaDomains.contains { url.contains($0) }
     }
 
-    private func assessDirectBookingLikelihood(url: String, html: String, category: PlatformCategory) -> DirectBookingLikelihood {
+    private func isSearchEngineDomain(_ url: String) -> Bool {
+        let domains = ["google.com", "bing.com", "duckduckgo.com", "yahoo.com", "serpapi.com"]
+        return domains.contains { url.contains($0) }
+    }
+
+    private func assessDirectBookingLikelihood(url: String, snippet: String, category: PlatformCategory) -> DirectBookingLikelihood {
         if category == .directBooking { return .high }
 
         let directSignals = [
@@ -375,15 +506,12 @@ final class SpiderCrawlerService {
             "contact owner", "owner direct", "no booking fee",
             "phone:", "email:", "call us"
         ]
-        let htmlLower = html.lowercased()
-        let signalCount = directSignals.filter { htmlLower.contains($0) }.count
+        let lower = snippet.lowercased()
+        let signalCount = directSignals.filter { lower.contains($0) }.count
 
         if signalCount >= 3 { return .high }
-
         if category == .alternativePlatform && signalCount >= 1 { return .medium }
-
         if category == .classifieds { return .high }
-
         if isSmallDomain(url) { return .high }
 
         return signalCount > 0 ? .medium : .low

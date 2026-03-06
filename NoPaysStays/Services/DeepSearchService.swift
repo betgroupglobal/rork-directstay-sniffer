@@ -1,5 +1,12 @@
 import Foundation
 
+nonisolated struct APISearchQuery: Sendable {
+    let query: String
+    let label: String
+    let category: PlatformCategory
+    let feeIndicator: String
+}
+
 enum DeepSearchService {
     static func generateSearchLinks(for criteria: SearchCriteria) -> [PlatformSearch] {
         var results: [PlatformSearch] = []
@@ -14,11 +21,6 @@ enum DeepSearchService {
         let checkInStr = criteria.checkIn.map { dateFormatter.string(from: $0) }
         let checkOutStr = criteria.checkOut.map { dateFormatter.string(from: $0) }
 
-        let dateFormatter2 = DateFormatter()
-        dateFormatter2.dateFormat = "dd/MM/yyyy"
-        let checkInSlash = criteria.checkIn.map { dateFormatter2.string(from: $0) }
-        let checkOutSlash = criteria.checkOut.map { dateFormatter2.string(from: $0) }
-
         results.append(contentsOf: alternativePlatforms(location: location, encoded: encoded, encodedPlus: encodedPlus, criteria: criteria, checkIn: checkInStr, checkOut: checkOutStr))
         results.append(contentsOf: classifieds(location: location, encoded: encoded, encodedPlus: encodedPlus, criteria: criteria))
         results.append(contentsOf: deepSearchQueries(location: location, encoded: encoded, criteria: criteria))
@@ -27,6 +29,121 @@ enum DeepSearchService {
         results.append(contentsOf: directBookingQueries(location: location, encoded: encoded, criteria: criteria))
 
         return results
+    }
+
+    static func generatePlatformSearches(for criteria: SearchCriteria) -> [PlatformSearch] {
+        var results: [PlatformSearch] = []
+        let location = criteria.location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !location.isEmpty else { return results }
+
+        let encoded = location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? location
+        let encodedPlus = location.replacingOccurrences(of: " ", with: "+")
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let checkInStr = criteria.checkIn.map { dateFormatter.string(from: $0) }
+        let checkOutStr = criteria.checkOut.map { dateFormatter.string(from: $0) }
+
+        results.append(contentsOf: alternativePlatforms(location: location, encoded: encoded, encodedPlus: encodedPlus, criteria: criteria, checkIn: checkInStr, checkOut: checkOutStr))
+        results.append(contentsOf: classifieds(location: location, encoded: encoded, encodedPlus: encodedPlus, criteria: criteria))
+        results.append(contentsOf: tourismDirectories(location: location, encoded: encoded, criteria: criteria))
+
+        return results
+    }
+
+    static func generateAPIQueries(for criteria: SearchCriteria) -> [APISearchQuery] {
+        let location = criteria.location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !location.isEmpty else { return [] }
+
+        var queries: [APISearchQuery] = []
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" holiday rental \"book direct\" -airbnb -booking.com",
+            label: "Direct Booking Search",
+            category: .directBooking,
+            feeIndicator: "0%"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" \"holiday house\" OR \"holiday home\" owner direct \(criteria.bedrooms) bedroom",
+            label: "Owner Direct Search",
+            category: .directBooking,
+            feeIndicator: "0%"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"holiday letting\" OR \"holiday rental\" \"\(location)\" site:.com.au -airbnb -booking -stayz",
+            label: "Local Agents Search",
+            category: .searchEngine,
+            feeIndicator: "Varies"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" accommodation \(criteria.bedrooms) bedroom \(criteria.guests) guest -airbnb.com -booking.com -expedia -hotels.com",
+            label: "No-OTA Filter",
+            category: .searchEngine,
+            feeIndicator: "Varies"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" holiday rental phone email \"book direct\" site:.com.au",
+            label: "Owner Contacts",
+            category: .directBooking,
+            feeIndicator: "0%"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" holiday house OR cottage OR cabin \"enquire\" OR \"contact us\" -airbnb -booking -stayz -vrbo",
+            label: "Owner Websites",
+            category: .directBooking,
+            feeIndicator: "0%"
+        ))
+
+        if criteria.isPetFriendly {
+            queries.append(APISearchQuery(
+                query: "\"\(location)\" pet friendly holiday rental \"book direct\"",
+                label: "Pet-Friendly Direct",
+                category: .directBooking,
+                feeIndicator: "0%"
+            ))
+        }
+
+        queries.append(APISearchQuery(
+            query: "site:stayz.com.au \"\(location)\" \(criteria.bedrooms) bedroom",
+            label: "Stayz (API)",
+            category: .alternativePlatform,
+            feeIndicator: "5-8%"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "site:vrbo.com \"\(location)\" holiday rental",
+            label: "Vrbo (API)",
+            category: .alternativePlatform,
+            feeIndicator: "6-12%"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "site:gumtree.com.au \"\(location)\" holiday accommodation",
+            label: "Gumtree (API)",
+            category: .classifieds,
+            feeIndicator: "0%"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" holiday rental reddit OR whirlpool OR forum recommendation",
+            label: "Community Picks",
+            category: .socialMedia,
+            feeIndicator: "N/A"
+        ))
+
+        queries.append(APISearchQuery(
+            query: "\"\(location)\" council tourism accommodation directory",
+            label: "Tourism Directories",
+            category: .tourismDirectory,
+            feeIndicator: "Varies"
+        ))
+
+        return queries
     }
 
     private static func alternativePlatforms(location: String, encoded: String, encodedPlus: String, criteria: SearchCriteria, checkIn: String?, checkOut: String?) -> [PlatformSearch] {
@@ -312,8 +429,6 @@ enum DeepSearchService {
 
     private static func tourismDirectories(location: String, encoded: String, criteria: SearchCriteria) -> [PlatformSearch] {
         var results: [PlatformSearch] = []
-
-        let state = extractState(from: location)
 
         if let url = URL(string: "https://www.visitnsw.com/accommodation?q=\(encoded)") {
             results.append(PlatformSearch(

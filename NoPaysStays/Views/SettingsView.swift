@@ -68,11 +68,36 @@ struct SettingsView: View {
                     PlatformGroupRow(title: "Tourism Directories", count: "5", description: "Visit NSW/VIC/QLD, WA Tourism, Local Councils", color: .blue)
                 }
 
+                Section("Search API Status") {
+                    apiStatusRow("Google Custom Search", configured: !Config.GOOGLE_API_KEY.isEmpty && !Config.GOOGLE_CX.isEmpty)
+                    apiStatusRow("Bing Web Search", configured: !Config.BING_API_KEY.isEmpty)
+                    apiStatusRow("SerpAPI", configured: !Config.SERP_API_KEY.isEmpty)
+                    apiStatusRow("Brave Search", configured: !Config.BRAVE_API_KEY.isEmpty)
+
+                    if SearchAPIProvider.configuredProviders.isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(AppTheme.warningAmber)
+                            Text("No search APIs configured. Spider will use HTML scraping as fallback (less reliable).")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(AppTheme.savingsGreen)
+                            Text("API-powered search active — structured results, no scraping timeouts.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section("About") {
                     HStack {
                         Label("Version", systemImage: "info.circle")
                         Spacer()
-                        Text("2.1.0")
+                        Text("3.0.0")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -89,6 +114,17 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+        }
+    }
+
+    private func apiStatusRow(_ name: String, configured: Bool) -> some View {
+        HStack {
+            Label(name, systemImage: configured ? "checkmark.circle.fill" : "xmark.circle")
+                .foregroundStyle(configured ? AppTheme.savingsGreen : .secondary)
+            Spacer()
+            Text(configured ? "Active" : "Not Set")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(configured ? AppTheme.savingsGreen : .tertiary)
         }
     }
 }
