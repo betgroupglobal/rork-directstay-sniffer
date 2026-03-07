@@ -223,3 +223,10 @@ Update `{@artifacts_path}/plan.md`.
 - Improved term generation in `backend/stays_crawler/crawler.py` to preserve multi-word intent phrases (for example `owner direct`, `book direct`) while also keeping token terms.
 - Added search quality coverage in `backend/tests/test_crawler.py` to assert Direct Hunter phrase terms are retained in built query terms.
 - Re-validated backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing (16 tests).
+
+### [x] Step: Make Direct Hunter analyze API/OTA results for alternate direct booking sites
+- Updated `backend/stays_crawler/crawler.py` so Direct Hunter enriches OTA/API listing analysis with property-aware matching terms and alternate-site extraction from listing-page links.
+- Added Direct Hunter-specific alternate URL hunting that queries search-engine result pages per discovered property and resolves redirect targets to non-OTA booking candidates.
+- Ensured discovered alternate/direct candidates are scored, enriched, deduplicated by booking URL, and returned while respecting existing `exclude_ota` behavior.
+- Added backend coverage in `backend/tests/test_crawler.py` validating that Direct Hunter can start from OTA seed results and return non-OTA direct links.
+- Re-validated backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing (17 tests).

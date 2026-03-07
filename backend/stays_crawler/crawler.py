@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 from stays_crawler.extract import (
     compute_relevance,
@@ -127,8 +127,15 @@ class StaysCrawler:
             outputs.append(self._enrich_result_hit(hit, request, parsed_result_cache, prefetched_html=page.text))
         links = extract_links(page.text, current_url)
         queued_links: list[tuple[str, str, str]] = []
+        direct_hunter_terms = query_terms
+        if request.direct_hunter and is_ota_url(current_url):
+            direct_hunter_terms = self._build_direct_hunter_terms(item, page_title, page_description, query_terms)
         for link, anchor_text in links:
-            link_score, link_matched = compute_relevance(anchor_text, snippet[:240], query_terms, link)
+            link_score, link_matched = compute_relevance(anchor_text, snippet[:240], direct_hunter_terms, link)
+            if request.direct_hunter and is_ota_url(current_url) and not is_ota_url(link):
+                keyword_boost = any(word in anchor_text.lower() for word in ("website", "official", "host", "book", "reserve"))
+                if keyword_boost:
+                    link_score = max(link_score, 1.0)
             if is_direct_property_url(link) and link_score > 0:
                 hit = BookingHit(
                     booking_url=link,
@@ -140,11 +147,113 @@ class StaysCrawler:
                     matched_terms=link_matched,
                 )
                 outputs.append(self._enrich_result_hit(hit, request, parsed_result_cache))
+            elif request.direct_hunter and is_ota_url(current_url) and not is_ota_url(link) and link_score > 0:
+                hit = BookingHit(
+                    booking_url=link,
+                    source=f"{item.source}_alternate",
+                    discovered_on=current_url,
+                    title=(anchor_text[:220] or base_title),
+                    snippet=base_snippet,
+                    score=link_score + 0.8,
+                    matched_terms=link_matched,
+                )
+                outputs.append(self._enrich_result_hit(hit, request, parsed_result_cache))
             if item.depth < depth_limit and _is_same_site(current_url, link):
                 queued_links.append((link, item.source, anchor_text[:220] or base_title))
+        if request.direct_hunter and is_ota_url(current_url):
+            outputs.extend(
+                self._hunt_alternate_direct_urls(
+                    item=item,
+                    current_url=current_url,
+                    page_title=page_title,
+                    page_description=page_description,
+                    query_terms=direct_hunter_terms,
+                    request=request,
+                    parsed_result_cache=parsed_result_cache,
+                )
+            )
         if queued_links:
             self.store.enqueue_links(request_key, queued_links, depth=item.depth + 1)
         return outputs
+
+    def _build_direct_hunter_terms(
+        self,
+        item: QueueItem,
+        page_title: str | None,
+        page_description: str | None,
+        query_terms: list[str],
+    ) -> list[str]:
+        additions: list[str] = []
+        for value in (item.title, page_title, page_description):
+            if not value:
+                continue
+            normalized = " ".join(value.strip().lower().split())
+            if normalized:
+                additions.append(normalized)
+        merged: list[str] = []
+        seen: set[str] = set()
+        for term in query_terms + additions + tokenize(" ".join(additions)):
+            if not term or term in seen:
+                continue
+            merged.append(term)
+            seen.add(term)
+        return merged
+
+    def _hunt_alternate_direct_urls(
+        self,
+        item: QueueItem,
+        current_url: str,
+        page_title: str | None,
+        page_description: str | None,
+        query_terms: list[str],
+        request: CrawlRequest,
+        parsed_result_cache: dict[str, dict[str, str | None]],
+    ) -> list[BookingHit]:
+        target_name = (item.title or page_title or "").strip()
+        if not target_name:
+            return []
+
+        hunt_queries = [
+            f"{target_name} {request.location} official site",
+            f"{target_name} {request.location} direct booking",
+        ]
+        discovered: list[BookingHit] = []
+        seen: set[str] = {current_url}
+
+        for search_query in hunt_queries:
+            search_url = f"https://duckduckgo.com/html/?q={quote_plus(search_query)}"
+            search_page = self.fetcher.fetch(search_url)
+            if not search_page or search_page.status >= 400:
+                continue
+            for link, anchor_text in extract_links(search_page.text, search_url):
+                resolved = _resolve_search_redirect(link)
+                if not resolved:
+                    continue
+                normalized = normalize_url(resolved)
+                if normalized in seen or is_ota_url(normalized):
+                    continue
+                seen.add(normalized)
+                score, matched_terms = compute_relevance(
+                    f"{target_name} {anchor_text}",
+                    page_description or "",
+                    query_terms,
+                    normalized,
+                )
+                if score <= 0:
+                    continue
+                hit = BookingHit(
+                    booking_url=normalized,
+                    source=f"{item.source}_direct_hunter",
+                    discovered_on=current_url,
+                    title=(anchor_text[:220] or target_name[:220]),
+                    snippet=((page_description or item.snippet or "")[:300]),
+                    score=score + 1.2,
+                    matched_terms=matched_terms,
+                )
+                discovered.append(self._enrich_result_hit(hit, request, parsed_result_cache))
+                if len(discovered) >= 6:
+                    return discovered
+        return discovered
 
     def _enrich_result_hit(
         self,
@@ -271,6 +380,14 @@ class StaysCrawler:
                 dedup.append(term)
                 seen.add(term)
         return dedup
+
+
+def _resolve_search_redirect(url: str) -> str | None:
+    parsed = urlparse(url)
+    if "duckduckgo.com" not in parsed.netloc:
+        return url
+    target = parse_qs(parsed.query).get("uddg", [None])[0]
+    return target
 
 
 def _is_same_site(source: str, target: str) -> bool:
