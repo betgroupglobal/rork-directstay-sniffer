@@ -166,3 +166,10 @@ Update `{@artifacts_path}/plan.md`.
 - Expanded search-engine discovery for Direct Hunter with multiple high-intent query variants and deduped seed URLs across variants.
 - Updated request model parsing for `direct_hunter` and aligned frontend Direct Hunt payload defaults to activate the stronger backend path.
 - Validated with backend tests (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) and browser JS syntax check (`node --check web/app.js`).
+
+### [x] Step: Clarify Full Search API behavior and refresh header/theme sleekness
+- Confirmed browser Full Search routes to `/api/v1/crawl` on the configured base URL, while Airbnb mode routes to `/api/v1/airbnb/search`.
+- Confirmed backend crawl source stack includes search engine, provider API source, provider seeds, Guesty, forums, and Reddit in Full Search flow.
+- Refined browser header with a cleaner brand layout (single logo, brand copy, live badge) and improved responsive behavior.
+- Enhanced visual polish across panels, form controls, buttons, and result cards for a sleeker glass-style theme while preserving existing functionality.
+- Validated browser script syntax (`node --check web/app.js`).
