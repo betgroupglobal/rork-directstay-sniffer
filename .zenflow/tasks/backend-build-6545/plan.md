@@ -100,3 +100,7 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Replace browser background with updated provided image
 - Copied updated provided asset into `web/background.png`.
 - Updated `web/styles.css` background URL to use `background.png`.
+
+### [x] Step: Deploy latest browser update to Vercel
+- Deployed `web/` to production with Vercel CLI.
+- Verified alias `https://nopays-stays-web.vercel.app` is serving successfully.
