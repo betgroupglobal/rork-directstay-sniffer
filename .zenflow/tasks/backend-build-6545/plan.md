@@ -92,3 +92,7 @@ Update `{@artifacts_path}/plan.md`.
 - Created and pushed branch `feature/hunter-enrichment-direct-only` to origin.
 - Deployed backend alias `https://directstay-crawl-api.vercel.app` and verified `/health` response is `{"status":"ok"}`.
 - Deployed web alias `https://nopays-stays-web.vercel.app` and verified updated UI is live.
+
+### [x] Step: Add provided background image to browser app
+- Copied provided image asset into `web/background.jpg`.
+- Updated `web/styles.css` body background to use the image with an overlay for readability.
