@@ -29,6 +29,8 @@ let terminalTimer = null;
 let progressValue = 8;
 let phaseIndex = 0;
 let terminalStepIndex = 0;
+let terminalUrlIndex = 0;
+let terminalUrls = [];
 
 let backgroundHuntInFlight = false;
 let backgroundHuntReady = false;
@@ -59,10 +61,38 @@ function pushTerminalLine(prefix, message) {
   terminalLogEl.scrollTop = terminalLogEl.scrollHeight;
 }
 
-function resetTerminal(mode) {
+function buildTerminalUrls(base, endpoint, mode, payload) {
+  const location = (payload?.location || '').trim();
+  const urls = [`${base}${endpoint}`];
+  if (!location) return urls;
+
+  const directQuery = encodeURIComponent(`${location} direct booking holiday stay`);
+  urls.push(`https://duckduckgo.com/html/?q=${directQuery}`);
+
+  if (mode === 'direct_hunter') {
+    const hunterQuery = encodeURIComponent(`${location} owner direct holiday rental official site`);
+    urls.push(`https://duckduckgo.com/html/?q=${hunterQuery}`);
+  }
+
+  if (mode !== 'airbnb') {
+    const redditQuery = encodeURIComponent(`${location} direct booking`);
+    urls.push(`https://www.reddit.com/search/?q=${redditQuery}`);
+  }
+
+  if (mode === 'airbnb') {
+    const providerQuery = encodeURIComponent(location);
+    urls.push(`${base}/api/v1/airbnb/search?location=${providerQuery}`);
+  }
+
+  return urls;
+}
+
+function resetTerminal(mode, urls) {
   if (!terminalLogEl) return;
   terminalLogEl.innerHTML = '';
   terminalStepIndex = 0;
+  terminalUrlIndex = 0;
+  terminalUrls = urls;
   pushTerminalLine('$', 'runtime initialized');
   pushTerminalLine('>', `mode=${mode}`);
 }
@@ -106,7 +136,7 @@ function stopProgress(success, silent = false) {
   loaderEl.setAttribute('aria-hidden', 'true');
 }
 
-function startProgress(mode) {
+function startProgress(mode, context = {}) {
   stopProgress(false, true);
   const phases = PHASES[mode] || PHASES.crawl;
   const terminalSteps = TERMINAL_STEPS[mode] || TERMINAL_STEPS.crawl;
@@ -118,8 +148,13 @@ function startProgress(mode) {
   meterBarEl.style.width = `${progressValue}%`;
   phaseLabelEl.textContent = phases[0];
 
-  resetTerminal(mode);
+  const crawlUrls = buildTerminalUrls(context.base || '', context.endpoint || '', mode, context.payload || {});
+  resetTerminal(mode, crawlUrls);
   pushTerminalLine('>', phases[0]);
+  if (crawlUrls.length) {
+    pushTerminalLine('url', crawlUrls[0]);
+    terminalUrlIndex = 1;
+  }
 
   progressTimer = setInterval(() => {
     progressValue = Math.min(93, progressValue + 3 + Math.random() * 6);
@@ -136,6 +171,12 @@ function startProgress(mode) {
     const message = terminalSteps[terminalStepIndex % terminalSteps.length];
     terminalStepIndex += 1;
     pushTerminalLine('$', message);
+
+    if (terminalUrls.length) {
+      const url = terminalUrls[terminalUrlIndex % terminalUrls.length];
+      terminalUrlIndex += 1;
+      pushTerminalLine('url', url);
+    }
   }, 780);
 }
 
@@ -287,7 +328,7 @@ async function executeSearch(modeOverride) {
   statusEl.textContent = `Calling ${endpoint}...`;
   listEl.innerHTML = '';
   metaEl.textContent = '';
-  startProgress(mode);
+  startProgress(mode, { base, endpoint, payload });
 
   try {
     const items = await runSearchRequest(base, endpoint, payload, mode);
@@ -325,7 +366,7 @@ async function runDirectHuntInBackground() {
 
   statusEl.textContent = 'Direct Hunt started in background...';
   metaEl.textContent = 'Hunt in progress';
-  startProgress(mode);
+  startProgress(mode, { base, endpoint, payload });
 
   try {
     const items = await runSearchRequest(base, endpoint, payload, mode);

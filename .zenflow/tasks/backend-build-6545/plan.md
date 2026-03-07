@@ -193,3 +193,9 @@ Update `{@artifacts_path}/plan.md`.
 - Updated frontend flow in `web/app.js` so Direct Hunt starts as a background request, caches completed hunt results, and enables `View Hunt Results` on completion.
 - Kept terminal-like progress active during the hunt and updated status/meta messaging for in-progress, complete, and failed hunt states.
 - Validated browser JS syntax (`node --check web/app.js`).
+
+### [x] Step: Show live crawling URLs in terminal progress
+- Added URL-feed generation in `web/app.js` based on current mode, endpoint, location, and source query targets.
+- Updated progress lifecycle to print alternating crawl actions and `url` lines in the terminal log during active search.
+- Wired live URL terminal output for both standard search and background Direct Hunt flows.
+- Validated browser JS syntax (`node --check web/app.js`).
