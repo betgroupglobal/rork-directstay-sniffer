@@ -86,57 +86,111 @@ function isOtaLink(url) {
   return /(?:^|\.)airbnb\.|(?:^|\.)booking\.|(?:^|\.)vrbo\.|(?:^|\.)stayz\.|(?:^|\.)expedia\.|(?:^|\.)tripadvisor\.|(?:^|\.)agoda\.|(?:^|\.)wotif\./i.test(url || '');
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function normalizeBaseUrl(rawBase) {
+  return rawBase.trim().replace(/\/$/, '');
+}
+
+function getEndpointForMode(mode) {
+  return mode === 'airbnb' ? '/api/v1/airbnb/search' : '/api/v1/crawl';
+}
+
+function applyDirectHunterDefaults(mode, payload) {
+  if (mode !== 'direct_hunter') return;
+  payload.crawl_depth = Math.max(2, Number(payload.crawl_depth || 0));
+  payload.max_pages_per_source = Math.max(35, Number(payload.max_pages_per_source || 0));
+  payload.exclude_ota = true;
+  if (payload.whole_home !== true) payload.whole_home = true;
+}
+
+function setSearchState(isSearching, mode) {
+  if (isSearching) {
+    const searchingLabel = mode === 'direct_hunter' ? 'Hunting...' : 'Searching...';
+    buttonEl.disabled = true;
+    directHuntBtnEl.disabled = true;
+    buttonEl.textContent = searchingLabel;
+    directHuntBtnEl.textContent = searchingLabel;
+    return;
+  }
+  buttonEl.disabled = false;
+  directHuntBtnEl.disabled = false;
+  buttonEl.textContent = 'Full Search';
+  directHuntBtnEl.textContent = 'Direct Hunt';
+}
+
+function normalizeItems(body, mode) {
+  let items = Array.isArray(body.results) ? body.results : [];
+  if (mode === 'direct_hunter') {
+    items = items.filter((item) => !isOtaLink(item.booking_url || item.url));
+  }
+  return items;
+}
+
+function buildItemMarkup(item, mode) {
+  const link = item.booking_url || item.url || '';
+  const title = item.title || link;
+  const snippet = item.snippet || '';
+  const shortDescription = (item.image_description || snippet || 'No description available.').trim();
+  const priceText = (item.estimated_cost || item.price || item.price_text || 'Price unavailable').toString().trim();
+  const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'direct-hunter');
+  const media = item.image_url
+    ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.image_description || title)}" loading="lazy" />`
+    : '';
+
+  return `
+      ${media}
+      <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>
+      <div class="result-description"><span>Description:</span> ${escapeHtml(shortDescription)}</div>
+      <div class="result-price"><span>Price:</span> ${escapeHtml(priceText)}</div>
+      <small>${escapeHtml(sourceLabel)}</small>
+    `;
+}
+
 function renderItems(items, mode) {
   listEl.innerHTML = '';
   if (!items.length) {
     statusEl.textContent = 'No results found.';
     return;
   }
+
   statusEl.textContent = '';
   for (const item of items) {
     const li = document.createElement('li');
-    const link = item.booking_url || item.url;
-    const title = item.title || link;
-    const snippet = item.snippet || '';
-    const shortDescription = (item.image_description || snippet || 'No description available.').trim();
-    const priceText = (item.estimated_cost || item.price || item.price_text || 'Price unavailable').toString().trim();
-    const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'direct-hunter');
-    const media = item.image_url ? `<img src="${item.image_url}" alt="${item.image_description || title}" loading="lazy" />` : '';
-    li.innerHTML = `
-      ${media}
-      <a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>
-      <div class="result-description"><span>Description:</span> ${shortDescription}</div>
-      <div class="result-price"><span>Price:</span> ${priceText}</div>
-      <small>${sourceLabel}</small>
-    `;
+    li.innerHTML = buildItemMarkup(item, mode);
     listEl.appendChild(li);
   }
 }
 
-formEl.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const base = byId('baseUrl').value.replace(/\/$/, '');
-  const mode = byId('mode').value;
-  const endpoint = mode === 'airbnb' ? '/api/v1/airbnb/search' : '/api/v1/crawl';
+async function parseResponseBody(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+async function executeSearch(modeOverride) {
+  const base = normalizeBaseUrl(byId('baseUrl').value);
+  const mode = modeOverride || byId('mode').value;
+  const endpoint = getEndpointForMode(mode);
   const payload = buildPayload();
 
-  if (mode === 'direct_hunter') {
-    payload.crawl_depth = Math.max(2, Number(payload.crawl_depth || 0));
-    payload.max_pages_per_source = Math.max(35, Number(payload.max_pages_per_source || 0));
-    payload.exclude_ota = true;
-    if (payload.whole_home !== true) payload.whole_home = true;
-  }
+  applyDirectHunterDefaults(mode, payload);
 
   if (!payload.location) {
     statusEl.textContent = 'Location is required.';
     return;
   }
 
-  const searchingLabel = mode === 'direct_hunter' ? 'Hunting...' : 'Searching...';
-  buttonEl.disabled = true;
-  directHuntBtnEl.disabled = true;
-  buttonEl.textContent = searchingLabel;
-  directHuntBtnEl.textContent = searchingLabel;
+  setSearchState(true, mode);
   statusEl.textContent = `Calling ${endpoint}...`;
   listEl.innerHTML = '';
   metaEl.textContent = '';
@@ -148,14 +202,13 @@ formEl.addEventListener('submit', async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const body = await response.json();
+
+    const body = await parseResponseBody(response);
     if (!response.ok) {
       throw new Error(body.error || `Request failed (${response.status})`);
     }
-    let items = Array.isArray(body.results) ? body.results : [];
-    if (mode === 'direct_hunter') {
-      items = items.filter((item) => !isOtaLink(item.booking_url || item.url));
-    }
+
+    const items = normalizeItems(body, mode);
     metaEl.textContent = `${items.length} result(s)`;
     renderItems(items, mode);
     stopProgress(true);
@@ -163,14 +216,16 @@ formEl.addEventListener('submit', async (event) => {
     stopProgress(false);
     statusEl.textContent = `Error: ${error.message}`;
   } finally {
-    buttonEl.disabled = false;
-    directHuntBtnEl.disabled = false;
-    buttonEl.textContent = 'Full Search';
-    directHuntBtnEl.textContent = 'Direct Hunt';
+    setSearchState(false, mode);
   }
+}
+
+formEl.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await executeSearch();
 });
 
-directHuntBtnEl.addEventListener('click', () => {
+directHuntBtnEl.addEventListener('click', async () => {
   byId('mode').value = 'direct_hunter';
-  formEl.requestSubmit();
+  await executeSearch('direct_hunter');
 });

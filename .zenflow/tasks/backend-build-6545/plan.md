@@ -143,3 +143,9 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Replace header with single provided logo
 - Removed additional logo references and switched header to a single logo image in `web/index.html`.
 - Added `web/logo-main.png` from the provided source and updated responsive logo sizing in `web/styles.css`.
+
+### [x] Step: Refine and optimize existing search flow without adding capabilities
+- Refactored `web/app.js` search flow into focused helpers (`executeSearch`, state handling, payload/default handling, endpoint resolution).
+- Preserved existing functionality while improving robustness (safe response parsing and HTML escaping for rendered result fields).
+- Kept Direct Hunt behavior unchanged and retained existing mode endpoints and filtering logic.
+- Validated script syntax with `node --check web/app.js`.
