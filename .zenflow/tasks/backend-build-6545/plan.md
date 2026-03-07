@@ -134,3 +134,8 @@ Update `{@artifacts_path}/plan.md`.
 - Copied provided logo assets into `web/logo-primary.png` and `web/logo-secondary.png`.
 - Updated `web/index.html` header to render both logos above the title.
 - Added responsive header-logo styling in `web/styles.css`.
+
+### [x] Step: Add basic logo header bar and deploy
+- Added a simple dedicated `brand-header` bar in `web/index.html` for logo display.
+- Updated `web/styles.css` with basic header-bar styling and responsive logo spacing.
+- Deployed web app to `https://nopays-stays-web.vercel.app` and verified response.
