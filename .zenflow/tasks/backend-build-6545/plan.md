@@ -96,3 +96,7 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Add provided background image to browser app
 - Copied provided image asset into `web/background.jpg`.
 - Updated `web/styles.css` body background to use the image with an overlay for readability.
+
+### [x] Step: Replace browser background with updated provided image
+- Copied updated provided asset into `web/background.png`.
+- Updated `web/styles.css` background URL to use `background.png`.
