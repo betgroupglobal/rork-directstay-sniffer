@@ -14,7 +14,7 @@ body {
   margin: 0;
   font-family: "Avenir Next", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: linear-gradient(rgba(248, 239, 229, 0.55), rgba(248, 239, 229, 0.55)), url('./background.png') center/cover no-repeat fixed;
+  background: linear-gradient(rgba(248, 239, 229, 0.55), rgba(248, 239, 229, 0.55)), url('./background.jpg') center/cover no-repeat fixed;
   min-height: 100vh;
 }
 

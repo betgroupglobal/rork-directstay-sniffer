@@ -104,3 +104,6 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Deploy latest browser update to Vercel
 - Deployed `web/` to production with Vercel CLI.
 - Verified alias `https://nopays-stays-web.vercel.app` is serving successfully.
+
+### [x] Step: Revert browser background to first provided image
+- Updated `web/styles.css` background URL from `background.png` back to `background.jpg`.
