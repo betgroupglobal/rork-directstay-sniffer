@@ -3,7 +3,16 @@ from __future__ import annotations
 from collections import defaultdict
 from urllib.parse import urlparse
 
-from stays_crawler.extract import compute_relevance, extract_links, is_direct_property_url, normalize_url, tokenize
+from stays_crawler.extract import (
+    compute_relevance,
+    extract_estimated_cost,
+    extract_links,
+    extract_primary_image_details,
+    is_direct_property_url,
+    is_ota_url,
+    normalize_url,
+    tokenize,
+)
 from stays_crawler.fetcher import HttpFetcher
 from stays_crawler.models import BookingHit, CrawlRequest, CrawlResponse, SeedHit
 from stays_crawler.sources.airbnb_provider import AirbnbProviderSource
@@ -65,7 +74,9 @@ class StaysCrawler:
                 self.store.mark_done(item.item_id)
                 continue
             processed_by_source[item.source] += 1
-            for hit in self._scan_item(item, query_terms, depth_limit, request_key):
+            for hit in self._scan_item(item, request, query_terms, depth_limit, request_key):
+                if request.exclude_ota and is_ota_url(hit.booking_url):
+                    continue
                 existing = scored.get(hit.booking_url)
                 if existing is None or hit.score > existing.score:
                     scored[hit.booking_url] = hit
@@ -75,13 +86,15 @@ class StaysCrawler:
         self.store.set_cached_response(request_key, response)
         return response
 
-    def _scan_item(self, item: QueueItem, query_terms: list[str], depth_limit: int, request_key: str) -> list[BookingHit]:
+    def _scan_item(self, item: QueueItem, request: CrawlRequest, query_terms: list[str], depth_limit: int, request_key: str) -> list[BookingHit]:
         current_url = normalize_url(item.url)
         page = self.fetcher.fetch(current_url)
         if not page or page.status >= 400:
             return []
         snippet = page.text[:1200]
         title = item.title or ""
+        image_url, image_description = extract_primary_image_details(page.text)
+        estimated_cost = extract_estimated_cost(page.text, request.check_in, request.check_out)
         outputs: list[BookingHit] = []
         score, matched = compute_relevance(title, snippet, query_terms, current_url)
         if is_direct_property_url(current_url) and score > 0:
@@ -94,6 +107,9 @@ class StaysCrawler:
                     snippet=snippet[:300],
                     score=score,
                     matched_terms=matched,
+                    image_url=image_url,
+                    image_description=image_description,
+                    estimated_cost=estimated_cost,
                 )
             )
         links = extract_links(page.text, current_url)
@@ -110,6 +126,9 @@ class StaysCrawler:
                         snippet=snippet[:300],
                         score=link_score + 1.0,
                         matched_terms=link_matched,
+                        image_url=image_url,
+                        image_description=image_description,
+                        estimated_cost=estimated_cost,
                     )
                 )
             if item.depth < depth_limit and _is_same_site(current_url, link):

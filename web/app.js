@@ -81,6 +81,10 @@ function buildPayload() {
   return payload;
 }
 
+function isOtaLink(url) {
+  return /(?:^|\.)airbnb\.|(?:^|\.)booking\.|(?:^|\.)vrbo\.|(?:^|\.)stayz\.|(?:^|\.)expedia\.|(?:^|\.)tripadvisor\.|(?:^|\.)agoda\.|(?:^|\.)wotif\./i.test(url || '');
+}
+
 function renderItems(items, mode) {
   listEl.innerHTML = '';
   if (!items.length) {
@@ -94,9 +98,15 @@ function renderItems(items, mode) {
     const title = item.title || link;
     const snippet = item.snippet || '';
     const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'direct-hunter');
+    const media = item.image_url ? `<img src="${item.image_url}" alt="${item.image_description || title}" loading="lazy" />` : '';
+    const imageDescription = item.image_description ? `<p>${item.image_description}</p>` : '';
+    const cost = item.estimated_cost ? `<strong>${item.estimated_cost}</strong>` : '';
     li.innerHTML = `
+      ${media}
       <a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>
       <div>${snippet}</div>
+      ${imageDescription}
+      ${cost}
       <small>${sourceLabel}</small>
     `;
     listEl.appendChild(li);
@@ -113,6 +123,7 @@ formEl.addEventListener('submit', async (event) => {
   if (mode === 'direct_hunter') {
     payload.crawl_depth = Math.max(2, Number(payload.crawl_depth || 0));
     payload.max_pages_per_source = Math.max(35, Number(payload.max_pages_per_source || 0));
+    payload.exclude_ota = true;
     if (payload.whole_home !== true) payload.whole_home = true;
   }
 
@@ -138,8 +149,11 @@ formEl.addEventListener('submit', async (event) => {
     if (!response.ok) {
       throw new Error(body.error || `Request failed (${response.status})`);
     }
-    const items = Array.isArray(body.results) ? body.results : [];
-    metaEl.textContent = `${body.total ?? items.length} result(s)`;
+    let items = Array.isArray(body.results) ? body.results : [];
+    if (mode === 'direct_hunter') {
+      items = items.filter((item) => !isOtaLink(item.booking_url || item.url));
+    }
+    metaEl.textContent = `${items.length} result(s)`;
     renderItems(items, mode);
     stopProgress(true);
   } catch (error) {

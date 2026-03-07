@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
+from html import unescape
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlparse, urlunparse
 
@@ -30,6 +32,8 @@ COMMON_BOOKING_HOST_HINTS = {
     "wotif.",
     "homesandvillas.",
 }
+
+OTA_HOST_HINTS = tuple(COMMON_BOOKING_HOST_HINTS)
 
 NON_PROPERTY_PATH_HINTS = (
     "/search",
@@ -131,6 +135,74 @@ def is_direct_property_url(url: str) -> bool:
     if "id" in query and query["id"]:
         return True
     return bool(re.search(r"/\d{5,}", path))
+
+
+def is_ota_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return any(hint in host for hint in OTA_HOST_HINTS)
+
+
+def extract_primary_image_details(html: str) -> tuple[str | None, str | None]:
+    image_url_match = re.search(
+        r'<meta[^>]+(?:property|name)=["\'](?:og:image|twitter:image)["\'][^>]*content=["\']([^"\']+)["\']',
+        html,
+        re.IGNORECASE,
+    )
+    image_url = image_url_match.group(1).strip() if image_url_match else None
+
+    image_desc_match = re.search(
+        r'<meta[^>]+(?:property|name)=["\'](?:og:image:alt|twitter:image:alt|description|og:description)["\'][^>]*content=["\']([^"\']+)["\']',
+        html,
+        re.IGNORECASE,
+    )
+    image_desc = image_desc_match.group(1).strip() if image_desc_match else None
+
+    if not image_desc:
+        img_match = re.search(r"<img[^>]+>", html, re.IGNORECASE)
+        if img_match:
+            tag = img_match.group(0)
+            alt_match = re.search(r'alt=["\']([^"\']+)["\']', tag, re.IGNORECASE)
+            if alt_match:
+                image_desc = alt_match.group(1).strip()
+
+    if image_desc:
+        image_desc = unescape(re.sub(r"\s+", " ", image_desc))[:220]
+
+    return image_url, image_desc
+
+
+def extract_estimated_cost(text: str, check_in: str | None, check_out: str | None) -> str | None:
+    candidates = re.findall(r"(?:AUD|USD|CAD|NZD|EUR|GBP|\$|€|£)\s?\d{2,5}(?:,\d{3})*(?:\.\d{2})?", text, re.IGNORECASE)
+    if not candidates:
+        return None
+
+    nightly = candidates[0].upper().replace("USD", "$ ").replace("AUD", "$ ").replace("CAD", "$ ").replace("NZD", "$ ").replace("EUR", "€ ").replace("GBP", "£ ")
+    nightly = re.sub(r"\s+", " ", nightly).strip()
+
+    if not check_in or not check_out:
+        return f"{nightly} per night"
+
+    try:
+        start = datetime.strptime(check_in, "%Y-%m-%d")
+        end = datetime.strptime(check_out, "%Y-%m-%d")
+    except ValueError:
+        return f"{nightly} per night"
+
+    nights = (end - start).days
+    if nights <= 0:
+        return f"{nightly} per night"
+
+    number_match = re.search(r"\d{2,5}(?:,\d{3})*(?:\.\d{2})?", nightly)
+    if not number_match:
+        return f"{nightly} per night"
+    amount = float(number_match.group(0).replace(",", ""))
+    total = amount * nights
+    currency = nightly[: number_match.start()].strip() or "$"
+    if total.is_integer():
+        total_str = f"{int(total):,}"
+    else:
+        total_str = f"{total:,.2f}"
+    return f"{currency} {total_str} for {nights} night{'s' if nights != 1 else ''}"
 
 
 def tokenize(text: str) -> list[str]:

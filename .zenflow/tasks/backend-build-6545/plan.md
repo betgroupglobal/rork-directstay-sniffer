@@ -81,3 +81,9 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Deploy updated browser app to Vercel production
 - Deployed `web/` with Vercel CLI and updated production alias.
 - Verified alias `https://nopays-stays-web.vercel.app` is serving the updated UI.
+
+### [x] Step: Enhance hunter results with image/cost enrichment and direct-only filtering
+- Added backend enrichment fields (`image_url`, `image_description`, `estimated_cost`) and extraction heuristics for crawl results.
+- Added direct-hunter OTA exclusion support via `exclude_ota` in crawl requests.
+- Updated browser result rendering to show image, image description, and estimated stay cost when available.
+- Enforced direct hunter filtering to suppress OTA domains (Airbnb/Booking/etc.) and validated with backend tests + JS syntax check.

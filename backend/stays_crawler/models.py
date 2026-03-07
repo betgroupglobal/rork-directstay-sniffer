@@ -14,6 +14,7 @@ class CrawlRequest:
     bathrooms: int | None = None
     pet_friendly: bool | None = None
     whole_home: bool | None = None
+    exclude_ota: bool | None = None
     max_results: int = 30
     crawl_depth: int | None = None
     max_pages_per_source: int | None = None
@@ -34,6 +35,7 @@ class CrawlRequest:
             bathrooms=_as_optional_int(payload.get("bathrooms")),
             pet_friendly=_as_optional_bool(payload.get("pet_friendly")),
             whole_home=_as_optional_bool(payload.get("whole_home")),
+            exclude_ota=_as_optional_bool(payload.get("exclude_ota")),
             max_results=max(1, min(int(payload.get("max_results", 30)), 200)),
             crawl_depth=_as_optional_int(payload.get("crawl_depth")),
             max_pages_per_source=_as_optional_int(payload.get("max_pages_per_source")),
@@ -59,6 +61,9 @@ class BookingHit:
     snippet: str
     score: float
     matched_terms: list[str] = field(default_factory=list)
+    image_url: str | None = None
+    image_description: str | None = None
+    estimated_cost: str | None = None
 
 
 @dataclass
@@ -80,6 +85,9 @@ class CrawlResponse:
                     "snippet": item.snippet,
                     "score": round(item.score, 3),
                     "matched_terms": item.matched_terms,
+                    "image_url": item.image_url,
+                    "image_description": item.image_description,
+                    "estimated_cost": item.estimated_cost,
                 }
                 for item in self.results
             ],

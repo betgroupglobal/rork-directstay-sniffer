@@ -35,7 +35,7 @@ class FakeSource(SearchSource):
 class TestCrawler(unittest.TestCase):
     def test_discovers_booking_links(self):
         pages = {
-            "https://example.com/search": '<html><a href="https://host.com/book/blue-house">Book now</a></html>'
+            "https://example.com/search": '<html><head><meta property="og:image" content="https://img.example.com/house.jpg"><meta property="og:description" content="Oceanfront villa with private deck"></head><body>$250 per night <a href="https://host.com/book/blue-house">Book now</a></body></html>'
         }
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "crawler.db")
@@ -47,10 +47,13 @@ class TestCrawler(unittest.TestCase):
                 cache_ttl_seconds=600,
             )
             crawler._build_sources = lambda: [FakeSource("https://example.com/search")]
-            req = CrawlRequest(location="Byron Bay", bedrooms=2, bathrooms=1, max_results=10)
+            req = CrawlRequest(location="Byron Bay", bedrooms=2, bathrooms=1, max_results=10, check_in="2026-04-01", check_out="2026-04-04")
             result = crawler.crawl(req)
             self.assertEqual(result.total, 1)
             self.assertEqual(result.results[0].booking_url, "https://host.com/book/blue-house")
+            self.assertEqual(result.results[0].image_url, "https://img.example.com/house.jpg")
+            self.assertEqual(result.results[0].image_description, "Oceanfront villa with private deck")
+            self.assertEqual(result.results[0].estimated_cost, "$ 750 for 3 nights")
 
     def test_uses_cache_between_calls(self):
         pages = {
@@ -91,6 +94,25 @@ class TestCrawler(unittest.TestCase):
             result = crawler.crawl(req)
             self.assertEqual(result.total, 1)
             self.assertEqual(result.results[0].booking_url, "https://airbnb.com/rooms/123456")
+
+    def test_exclude_ota_filters_airbnb_and_booking_links(self):
+        pages = {
+            "https://example.com/search": '<html><a href="https://airbnb.com/rooms/123456">Airbnb</a><a href="https://booking.com/hotel/au/demo.en-gb.html">Booking</a><a href="https://host.com/book/blue-house">Direct</a></html>'
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "crawler.db")
+            crawler = StaysCrawler(
+                fetcher=FakeFetcher(pages),
+                default_depth=1,
+                default_pages_per_source=5,
+                store=CrawlStore(db_path),
+                cache_ttl_seconds=600,
+            )
+            crawler._build_sources = lambda: [FakeSource("https://example.com/search")]
+            req = CrawlRequest(location="Byron Bay", max_results=10, exclude_ota=True)
+            result = crawler.crawl(req)
+            self.assertEqual(result.total, 1)
+            self.assertEqual(result.results[0].booking_url, "https://host.com/book/blue-house")
 
 
 if __name__ == "__main__":
