@@ -87,3 +87,8 @@ Update `{@artifacts_path}/plan.md`.
 - Added direct-hunter OTA exclusion support via `exclude_ota` in crawl requests.
 - Updated browser result rendering to show image, image description, and estimated stay cost when available.
 - Enforced direct hunter filtering to suppress OTA domains (Airbnb/Booking/etc.) and validated with backend tests + JS syntax check.
+
+### [x] Step: Push new branch and deploy latest backend/web to Vercel
+- Created and pushed branch `feature/hunter-enrichment-direct-only` to origin.
+- Deployed backend alias `https://directstay-crawl-api.vercel.app` and verified `/health` response is `{"status":"ok"}`.
+- Deployed web alias `https://nopays-stays-web.vercel.app` and verified updated UI is live.
