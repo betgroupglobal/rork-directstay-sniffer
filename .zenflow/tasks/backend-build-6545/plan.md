@@ -187,3 +187,9 @@ Update `{@artifacts_path}/plan.md`.
 - Enforced backend crawl parse depth cap at `1` in `backend/stays_crawler/crawler.py` regardless of requested depth.
 - Updated Direct Hunter frontend payload default to send `crawl_depth = 1` in `web/app.js`.
 - Validated backend tests (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) and browser JS syntax (`node --check web/app.js`).
+
+### [x] Step: Run Direct Hunt in background and show results when complete
+- Added a new `View Hunt Results` action in `web/index.html` and styled button states in `web/styles.css`.
+- Updated frontend flow in `web/app.js` so Direct Hunt starts as a background request, caches completed hunt results, and enables `View Hunt Results` on completion.
+- Kept terminal-like progress active during the hunt and updated status/meta messaging for in-progress, complete, and failed hunt states.
+- Validated browser JS syntax (`node --check web/app.js`).

@@ -185,12 +185,23 @@ button:hover {
 .action-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.7rem;
 }
 
 #directHuntBtn {
   background: linear-gradient(94deg, #0f8058, #36a07a);
+}
+
+#viewHuntResultsBtn {
+  background: linear-gradient(94deg, #1d4e97, #3f77cb);
+}
+
+#viewHuntResultsBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .output-head {
@@ -384,6 +395,10 @@ button:hover {
 
   .brand-pill {
     justify-self: center;
+  }
+
+  .action-row {
+    grid-template-columns: 1fr;
   }
 
   .checks { grid-column: span 1; flex-direction: column; align-items: flex-start; }

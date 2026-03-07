@@ -4,6 +4,7 @@ const listEl = document.getElementById('results');
 const metaEl = document.getElementById('meta');
 const buttonEl = document.getElementById('submitBtn');
 const directHuntBtnEl = document.getElementById('directHuntBtn');
+const viewHuntResultsBtnEl = document.getElementById('viewHuntResultsBtn');
 const loaderEl = document.getElementById('loader');
 const phaseLabelEl = document.getElementById('phaseLabel');
 const meterBarEl = document.getElementById('meterBar');
@@ -28,6 +29,10 @@ let terminalTimer = null;
 let progressValue = 8;
 let phaseIndex = 0;
 let terminalStepIndex = 0;
+
+let backgroundHuntInFlight = false;
+let backgroundHuntReady = false;
+let backgroundHuntItems = [];
 
 function timestamp() {
   return new Date().toLocaleTimeString([], { hour12: false });
@@ -60,6 +65,16 @@ function resetTerminal(mode) {
   terminalStepIndex = 0;
   pushTerminalLine('$', 'runtime initialized');
   pushTerminalLine('>', `mode=${mode}`);
+}
+
+function refreshViewHuntButton() {
+  viewHuntResultsBtnEl.disabled = !backgroundHuntReady;
+  if (backgroundHuntInFlight) {
+    viewHuntResultsBtnEl.textContent = 'Hunt Running...';
+    viewHuntResultsBtnEl.disabled = true;
+    return;
+  }
+  viewHuntResultsBtnEl.textContent = backgroundHuntReady ? 'View Hunt Results' : 'Await Hunt Results';
 }
 
 function stopProgress(success, silent = false) {
@@ -178,14 +193,16 @@ function setSearchState(isSearching, mode) {
     const searchingLabel = mode === 'direct_hunter' ? 'Hunting...' : 'Searching...';
     buttonEl.disabled = true;
     directHuntBtnEl.disabled = true;
+    viewHuntResultsBtnEl.disabled = true;
     buttonEl.textContent = searchingLabel;
     directHuntBtnEl.textContent = searchingLabel;
     return;
   }
   buttonEl.disabled = false;
-  directHuntBtnEl.disabled = false;
+  directHuntBtnEl.disabled = backgroundHuntInFlight;
   buttonEl.textContent = 'Full Search';
-  directHuntBtnEl.textContent = 'Direct Hunt';
+  directHuntBtnEl.textContent = backgroundHuntInFlight ? 'Hunting...' : 'Direct Hunt';
+  refreshViewHuntButton();
 }
 
 function normalizeItems(body, mode) {
@@ -239,6 +256,20 @@ async function parseResponseBody(response) {
   }
 }
 
+async function runSearchRequest(base, endpoint, payload, mode) {
+  const response = await fetch(`${base}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(body.error || `Request failed (${response.status})`);
+  }
+  return normalizeItems(body, mode);
+}
+
 async function executeSearch(modeOverride) {
   const base = normalizeBaseUrl(byId('baseUrl').value);
   const mode = modeOverride || byId('mode').value;
@@ -259,18 +290,7 @@ async function executeSearch(modeOverride) {
   startProgress(mode);
 
   try {
-    const response = await fetch(`${base}${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const body = await parseResponseBody(response);
-    if (!response.ok) {
-      throw new Error(body.error || `Request failed (${response.status})`);
-    }
-
-    const items = normalizeItems(body, mode);
+    const items = await runSearchRequest(base, endpoint, payload, mode);
     metaEl.textContent = `${items.length} result(s)`;
     renderItems(items, mode);
     stopProgress(true);
@@ -282,6 +302,60 @@ async function executeSearch(modeOverride) {
   }
 }
 
+async function runDirectHuntInBackground() {
+  if (backgroundHuntInFlight) return;
+
+  const base = normalizeBaseUrl(byId('baseUrl').value);
+  const mode = 'direct_hunter';
+  const endpoint = getEndpointForMode(mode);
+  const payload = buildPayload();
+  applyDirectHunterDefaults(mode, payload);
+
+  if (!payload.location) {
+    statusEl.textContent = 'Location is required.';
+    return;
+  }
+
+  backgroundHuntInFlight = true;
+  backgroundHuntReady = false;
+  backgroundHuntItems = [];
+  directHuntBtnEl.disabled = true;
+  directHuntBtnEl.textContent = 'Hunting...';
+  refreshViewHuntButton();
+
+  statusEl.textContent = 'Direct Hunt started in background...';
+  metaEl.textContent = 'Hunt in progress';
+  startProgress(mode);
+
+  try {
+    const items = await runSearchRequest(base, endpoint, payload, mode);
+    backgroundHuntItems = items;
+    backgroundHuntReady = true;
+    metaEl.textContent = `${items.length} hunt result(s) ready`;
+    statusEl.textContent = 'Direct Hunt complete. Click "View Hunt Results".';
+    stopProgress(true);
+  } catch (error) {
+    stopProgress(false);
+    statusEl.textContent = `Direct Hunt failed: ${error.message}`;
+    metaEl.textContent = 'Hunt failed';
+  } finally {
+    backgroundHuntInFlight = false;
+    directHuntBtnEl.disabled = false;
+    directHuntBtnEl.textContent = 'Direct Hunt';
+    refreshViewHuntButton();
+  }
+}
+
+function showBackgroundHuntResults() {
+  if (!backgroundHuntReady) {
+    statusEl.textContent = 'Direct Hunt is not complete yet.';
+    return;
+  }
+  renderItems(backgroundHuntItems, 'direct_hunter');
+  metaEl.textContent = `${backgroundHuntItems.length} hunt result(s)`;
+  statusEl.textContent = '';
+}
+
 formEl.addEventListener('submit', async (event) => {
   event.preventDefault();
   await executeSearch();
@@ -289,5 +363,11 @@ formEl.addEventListener('submit', async (event) => {
 
 directHuntBtnEl.addEventListener('click', async () => {
   byId('mode').value = 'direct_hunter';
-  await executeSearch('direct_hunter');
+  await runDirectHuntInBackground();
 });
+
+viewHuntResultsBtnEl.addEventListener('click', () => {
+  showBackgroundHuntResults();
+});
+
+refreshViewHuntButton();
