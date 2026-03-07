@@ -155,3 +155,7 @@ Update `{@artifacts_path}/plan.md`.
 - Added per-request enrichment cache to avoid duplicate parsing for repeated result URLs.
 - Applied the same enriched result pipeline for standard results and Direct Hunter output.
 - Updated crawler tests and validated with `PYTHONPATH=backend python3 -m unittest discover -s backend/tests`.
+
+### [x] Step: Deploy latest backend and web updates to Vercel
+- Deployed backend and confirmed health endpoint at `https://directstay-crawl-api.vercel.app/health` returns `{"status":"ok"}`.
+- Deployed web app and verified alias `https://nopays-stays-web.vercel.app` responds successfully.
