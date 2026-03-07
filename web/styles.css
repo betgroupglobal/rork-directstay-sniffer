@@ -43,7 +43,7 @@ body {
 .brand-logos {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  justify-content: center;
 }
 
 .hero-logo {
@@ -52,12 +52,8 @@ body {
   border-radius: 10px;
 }
 
-.hero-logo-primary {
-  width: clamp(52px, 8vw, 74px);
-}
-
-.hero-logo-secondary {
-  width: clamp(120px, 18vw, 180px);
+.hero-logo-main {
+  width: clamp(140px, 26vw, 260px);
 }
 
 .hero h1 {
@@ -287,7 +283,5 @@ button:hover { filter: brightness(1.05); }
 
 @media (max-width: 680px) {
   .checks { grid-column: span 1; flex-direction: column; align-items: flex-start; }
-  .brand-logos { gap: 0.45rem; }
-  .hero-logo-primary { width: 50px; }
-  .hero-logo-secondary { width: 130px; }
+  .hero-logo-main { width: 150px; }
 }

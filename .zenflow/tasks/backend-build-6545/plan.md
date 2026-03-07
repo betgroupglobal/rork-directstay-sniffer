@@ -139,3 +139,7 @@ Update `{@artifacts_path}/plan.md`.
 - Added a simple dedicated `brand-header` bar in `web/index.html` for logo display.
 - Updated `web/styles.css` with basic header-bar styling and responsive logo spacing.
 - Deployed web app to `https://nopays-stays-web.vercel.app` and verified response.
+
+### [x] Step: Replace header with single provided logo
+- Removed additional logo references and switched header to a single logo image in `web/index.html`.
+- Added `web/logo-main.png` from the provided source and updated responsive logo sizing in `web/styles.css`.
