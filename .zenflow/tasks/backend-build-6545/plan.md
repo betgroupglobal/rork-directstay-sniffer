@@ -205,3 +205,9 @@ Update `{@artifacts_path}/plan.md`.
 - Updated `web/app.js` submit handler so primary search always executes API provider mode (`airbnb`) and relabeled primary action to `API Search`.
 - Kept Direct Hunter initiation exclusive to `Direct Hunt` button (background flow unchanged for button-triggered execution).
 - Validated browser JS syntax (`node --check web/app.js`).
+
+### [x] Step: Replace API Search with Full Search while keeping Direct Hunter separate
+- Updated `web/index.html` search mode and primary button label to `Full Search`.
+- Updated `web/app.js` form submit flow so primary search always executes crawl mode (`crawl`) rather than API provider-only mode.
+- Kept Direct Hunter initiation exclusive to the `Direct Hunt` button and adjusted default source fallback label for non-provider mode.
+- Validated browser JS syntax (`node --check web/app.js`).

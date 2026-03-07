@@ -241,7 +241,7 @@ function setSearchState(isSearching, mode) {
   }
   buttonEl.disabled = false;
   directHuntBtnEl.disabled = backgroundHuntInFlight;
-  buttonEl.textContent = 'API Search';
+  buttonEl.textContent = 'Full Search';
   directHuntBtnEl.textContent = backgroundHuntInFlight ? 'Hunting...' : 'Direct Hunt';
   refreshViewHuntButton();
 }
@@ -260,7 +260,7 @@ function buildItemMarkup(item, mode) {
   const snippet = item.snippet || '';
   const shortDescription = (item.image_description || snippet || 'No description available.').trim();
   const priceText = (item.estimated_cost || item.price || item.price_text || 'Price unavailable').toString().trim();
-  const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'direct-hunter');
+  const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'full-search');
   const media = item.image_url
     ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.image_description || title)}" loading="lazy" />`
     : '';
@@ -399,8 +399,8 @@ function showBackgroundHuntResults() {
 
 formEl.addEventListener('submit', async (event) => {
   event.preventDefault();
-  byId('mode').value = 'airbnb';
-  await executeSearch('airbnb');
+  byId('mode').value = 'crawl';
+  await executeSearch('crawl');
 });
 
 directHuntBtnEl.addEventListener('click', async () => {
