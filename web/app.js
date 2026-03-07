@@ -3,6 +3,7 @@ const statusEl = document.getElementById('status');
 const listEl = document.getElementById('results');
 const metaEl = document.getElementById('meta');
 const buttonEl = document.getElementById('submitBtn');
+const directHuntBtnEl = document.getElementById('directHuntBtn');
 const loaderEl = document.getElementById('loader');
 const phaseLabelEl = document.getElementById('phaseLabel');
 const meterBarEl = document.getElementById('meterBar');
@@ -131,8 +132,11 @@ formEl.addEventListener('submit', async (event) => {
     return;
   }
 
+  const searchingLabel = mode === 'direct_hunter' ? 'Hunting...' : 'Searching...';
   buttonEl.disabled = true;
-  buttonEl.textContent = 'Searching...';
+  directHuntBtnEl.disabled = true;
+  buttonEl.textContent = searchingLabel;
+  directHuntBtnEl.textContent = searchingLabel;
   statusEl.textContent = `Calling ${endpoint}...`;
   listEl.innerHTML = '';
   metaEl.textContent = '';
@@ -160,6 +164,13 @@ formEl.addEventListener('submit', async (event) => {
     statusEl.textContent = `Error: ${error.message}`;
   } finally {
     buttonEl.disabled = false;
-    buttonEl.textContent = 'Search';
+    directHuntBtnEl.disabled = false;
+    buttonEl.textContent = 'Full Search';
+    directHuntBtnEl.textContent = 'Direct Hunt';
   }
+});
+
+directHuntBtnEl.addEventListener('click', () => {
+  byId('mode').value = 'direct_hunter';
+  formEl.requestSubmit();
 });

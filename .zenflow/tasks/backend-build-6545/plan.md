@@ -123,3 +123,9 @@ Update `{@artifacts_path}/plan.md`.
 
 ### [x] Step: Update background asset to f72481ee-9783-419d-91bb-ed3d29951a73.jpg
 - Refreshed `web/background.jpg` using the provided source image from `.zenflow-images`.
+
+### [x] Step: Add "Direct Hunt" action button after full search
+- Updated `web/index.html` to place a `Direct Hunt` button beside `Full Search`.
+- Wired `web/app.js` so clicking `Direct Hunt` sets mode to `direct_hunter` and submits the form.
+- Updated button-state handling and styling in `web/app.js` and `web/styles.css`.
+- Validated script syntax with `node --check web/app.js`.

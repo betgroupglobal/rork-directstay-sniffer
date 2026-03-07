@@ -105,6 +105,17 @@ button {
 
 button:hover { filter: brightness(1.05); }
 
+.action-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+#directHuntBtn {
+  background: linear-gradient(90deg, #0f8058, #36a07a);
+}
+
 .output-head {
   display: flex;
   justify-content: space-between;
