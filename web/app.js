@@ -7,6 +7,7 @@ const directHuntBtnEl = document.getElementById('directHuntBtn');
 const loaderEl = document.getElementById('loader');
 const phaseLabelEl = document.getElementById('phaseLabel');
 const meterBarEl = document.getElementById('meterBar');
+const terminalLogEl = document.getElementById('terminalLog');
 
 const byId = (id) => document.getElementById(id);
 
@@ -16,20 +17,66 @@ const PHASES = {
   airbnb: ['Querying provider', 'Normalizing listing URLs', 'Filtering valid stays', 'Assembling results'],
 };
 
+const TERMINAL_STEPS = {
+  direct_hunter: ['boot hunter profile', 'queue deep crawl batches', 'inspect booking path signals', 'drop OTA candidates', 'rank direct-owner pages'],
+  crawl: ['seed search engine links', 'follow on-site listing links', 'extract listing metadata', 'score booking-page confidence', 'finalize result shortlist'],
+  airbnb: ['send provider request', 'normalize listing records', 'validate response fields', 'compile mapped output'],
+};
+
 let progressTimer = null;
+let terminalTimer = null;
 let progressValue = 8;
 let phaseIndex = 0;
+let terminalStepIndex = 0;
 
-function stopProgress(success) {
+function timestamp() {
+  return new Date().toLocaleTimeString([], { hour12: false });
+}
+
+function pushTerminalLine(prefix, message) {
+  if (!terminalLogEl) return;
+  const line = document.createElement('div');
+  line.className = 'term-line';
+
+  const stamp = document.createElement('span');
+  stamp.textContent = `[${timestamp()}] `;
+  const prompt = document.createElement('b');
+  prompt.textContent = prefix;
+  const text = document.createElement('span');
+  text.textContent = ` ${message}`;
+
+  line.append(stamp, prompt, text);
+  terminalLogEl.appendChild(line);
+
+  while (terminalLogEl.children.length > 8) {
+    terminalLogEl.removeChild(terminalLogEl.firstChild);
+  }
+  terminalLogEl.scrollTop = terminalLogEl.scrollHeight;
+}
+
+function resetTerminal(mode) {
+  if (!terminalLogEl) return;
+  terminalLogEl.innerHTML = '';
+  terminalStepIndex = 0;
+  pushTerminalLine('$', 'runtime initialized');
+  pushTerminalLine('>', `mode=${mode}`);
+}
+
+function stopProgress(success, silent = false) {
   if (progressTimer) {
     clearInterval(progressTimer);
     progressTimer = null;
+  }
+  if (terminalTimer) {
+    clearInterval(terminalTimer);
+    terminalTimer = null;
   }
 
   if (success) {
     progressValue = 100;
     meterBarEl.style.width = '100%';
     phaseLabelEl.textContent = 'Complete';
+    pushTerminalLine('✓', 'scrape complete, rendering results');
     setTimeout(() => {
       loaderEl.classList.remove('active');
       loaderEl.setAttribute('aria-hidden', 'true');
@@ -37,13 +84,17 @@ function stopProgress(success) {
     return;
   }
 
+  if (!silent) {
+    pushTerminalLine('!', 'search interrupted before completion');
+  }
   loaderEl.classList.remove('active');
   loaderEl.setAttribute('aria-hidden', 'true');
 }
 
 function startProgress(mode) {
-  stopProgress(false);
+  stopProgress(false, true);
   const phases = PHASES[mode] || PHASES.crawl;
+  const terminalSteps = TERMINAL_STEPS[mode] || TERMINAL_STEPS.crawl;
   progressValue = 8;
   phaseIndex = 0;
 
@@ -52,6 +103,9 @@ function startProgress(mode) {
   meterBarEl.style.width = `${progressValue}%`;
   phaseLabelEl.textContent = phases[0];
 
+  resetTerminal(mode);
+  pushTerminalLine('>', phases[0]);
+
   progressTimer = setInterval(() => {
     progressValue = Math.min(93, progressValue + 3 + Math.random() * 6);
     meterBarEl.style.width = `${Math.round(progressValue)}%`;
@@ -59,8 +113,15 @@ function startProgress(mode) {
     if (Math.random() > 0.42 && phaseIndex < phases.length - 1) {
       phaseIndex += 1;
       phaseLabelEl.textContent = phases[phaseIndex];
+      pushTerminalLine('>', phases[phaseIndex]);
     }
   }, 420);
+
+  terminalTimer = setInterval(() => {
+    const message = terminalSteps[terminalStepIndex % terminalSteps.length];
+    terminalStepIndex += 1;
+    pushTerminalLine('$', message);
+  }, 780);
 }
 
 function buildPayload() {

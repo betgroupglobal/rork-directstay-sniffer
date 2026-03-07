@@ -224,6 +224,31 @@ button:hover {
 
 .loader.active { display: grid; }
 
+.terminal-log {
+  margin-top: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(19, 52, 42, 0.4);
+  background: radial-gradient(circle at top, rgba(30, 57, 50, 0.95), rgba(17, 25, 29, 0.98));
+  color: #9af0ca;
+  font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  max-height: 128px;
+  overflow: auto;
+  padding: 0.38rem 0.5rem;
+}
+
+.term-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term-line b {
+  color: #f3ff9f;
+  font-weight: 600;
+}
+
 .scan-field {
   position: relative;
   width: 64px;

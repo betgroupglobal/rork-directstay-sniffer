@@ -176,3 +176,9 @@ Update `{@artifacts_path}/plan.md`.
 
 ### [x] Step: Update background to newly provided f72481ee-9783-419d-91bb-ed3d29951a73 PNG
 - Replaced `web/background.jpg` with the newly provided image asset from `.zenflow-images/27bc56d2-f75a-42f0-9fb3-e2017ad1aef7.png`.
+
+### [x] Step: Show terminal-like scraping progress during search
+- Added a live terminal-style log panel inside the loader area in `web/index.html`.
+- Styled terminal output with monospace lines and scrolling log behavior in `web/styles.css`.
+- Wired dynamic scrape-log events into progress lifecycle in `web/app.js` for mode boot, phase transitions, ongoing scrape ticks, completion, and interruption.
+- Validated browser script syntax (`node --check web/app.js`).
