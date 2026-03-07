@@ -116,3 +116,7 @@ Update `{@artifacts_path}/plan.md`.
 - Updated `web/app.js` result rendering to show labeled `Description` and `Price` fields with fallback values.
 - Styled new result metadata rows in `web/styles.css`.
 - Validated browser script syntax (`node --check web/app.js`).
+
+### [x] Step: Deploy result card update to Vercel production
+- Deployed `web/` to Vercel production after adding Description/Price fields.
+- Verified alias `https://nopays-stays-web.vercel.app` responds successfully.
