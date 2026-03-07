@@ -230,3 +230,11 @@ Update `{@artifacts_path}/plan.md`.
 - Ensured discovered alternate/direct candidates are scored, enriched, deduplicated by booking URL, and returned while respecting existing `exclude_ota` behavior.
 - Added backend coverage in `backend/tests/test_crawler.py` validating that Direct Hunter can start from OTA seed results and return non-OTA direct links.
 - Re-validated backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing (17 tests).
+
+### [x] Step: Make Direct Hunter inspect search-result URLs to confirm same-property direct booking matches
+- Updated `backend/stays_crawler/crawler.py` Direct Hunter flow to build property-keyword search queries from discovered listing names.
+- Added candidate-page inspection by fetching each non-OTA result URL and parsing title/description before accepting it.
+- Added same-property identity checks based on signature token overlap between listing identity and inspected candidate-page content/URL.
+- Kept scoring + enrichment path for accepted candidates so direct-hunter output remains ranked and metadata-rich.
+- Added backend test coverage in `backend/tests/test_crawler.py` for both positive and negative inspected-URL matching cases.
+- Re-validated backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing (18 tests).

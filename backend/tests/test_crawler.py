@@ -133,8 +133,9 @@ class TestCrawler(unittest.TestCase):
     def test_direct_hunter_finds_alternate_direct_urls_from_ota_seed_results(self):
         pages = {
             "https://airbnb.com/rooms/123456": '<html><head><title>Blue House - Airbnb</title><meta property="og:description" content="Oceanfront villa in Byron Bay"></head><body><a href="https://airbnb.com/users/show/111">Host profile</a></body></html>',
-            "https://duckduckgo.com/html/?q=Blue+House+Byron+Bay+official+site": '<html><body><a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fbluehousebyron.com%2Fbook">Official booking</a></body></html>',
-            "https://duckduckgo.com/html/?q=Blue+House+Byron+Bay+direct+booking": '<html><body><a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fbluehousebyron.com%2Fstay">Direct booking</a></body></html>',
+            "https://duckduckgo.com/html/?q=blue+house+Byron+Bay+official+site": '<html><body><a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fbluehousebyron.com%2Fbook">Official booking</a></body></html>',
+            "https://duckduckgo.com/html/?q=blue+house+Byron+Bay+direct+booking": '<html><body><a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fbluehousebyron.com%2Fstay">Direct booking</a></body></html>',
+            "https://duckduckgo.com/html/?q=blue+house+Byron+Bay+owner+direct+website": '<html><body></body></html>',
             "https://bluehousebyron.com/book": '<html><head><title>Blue House Byron</title><meta property="og:description" content="Book Blue House direct"></head><body>$300 per night</body></html>',
             "https://bluehousebyron.com/stay": '<html><head><title>Blue House Byron</title><meta property="og:description" content="Book Blue House direct"></head><body>$300 per night</body></html>',
         }
@@ -153,6 +154,28 @@ class TestCrawler(unittest.TestCase):
             urls = [item.booking_url for item in result.results]
             self.assertTrue(any(url.startswith("https://bluehousebyron.com/") for url in urls))
             self.assertFalse(any("airbnb.com" in url for url in urls))
+
+    def test_direct_hunter_rejects_unrelated_candidate_pages(self):
+        pages = {
+            "https://airbnb.com/rooms/123456": '<html><head><title>Blue House - Airbnb</title><meta property="og:description" content="Oceanfront villa in Byron Bay"></head></html>',
+            "https://duckduckgo.com/html/?q=blue+house+Byron+Bay+official+site": '<html><body><a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Funrelated-hotel.com%2Fbook">Official site</a></body></html>',
+            "https://duckduckgo.com/html/?q=blue+house+Byron+Bay+direct+booking": '<html><body></body></html>',
+            "https://duckduckgo.com/html/?q=blue+house+Byron+Bay+owner+direct+website": '<html><body></body></html>',
+            "https://unrelated-hotel.com/book": '<html><head><title>Grand City Hotel</title><meta property="og:description" content="CBD hotel in Sydney"></head></html>',
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "crawler.db")
+            crawler = StaysCrawler(
+                fetcher=FakeFetcher(pages),
+                default_depth=1,
+                default_pages_per_source=5,
+                store=CrawlStore(db_path),
+                cache_ttl_seconds=600,
+            )
+            crawler._build_sources = lambda: [FakePropertySource("https://airbnb.com/rooms/123456", "Blue House")]
+            req = CrawlRequest(location="Byron Bay", max_results=10, direct_hunter=True, exclude_ota=True)
+            result = crawler.crawl(req)
+            self.assertEqual(result.total, 0)
 
     def test_compute_relevance_avoids_partial_substring_matches(self):
         score, matched = compute_relevance(

@@ -213,10 +213,7 @@ class StaysCrawler:
         if not target_name:
             return []
 
-        hunt_queries = [
-            f"{target_name} {request.location} official site",
-            f"{target_name} {request.location} direct booking",
-        ]
+        hunt_queries = self._build_hunter_queries(target_name, request.location)
         discovered: list[BookingHit] = []
         seen: set[str] = {current_url}
 
@@ -233,9 +230,16 @@ class StaysCrawler:
                 if normalized in seen or is_ota_url(normalized):
                     continue
                 seen.add(normalized)
+                candidate_page = self.fetcher.fetch(normalized)
+                if not candidate_page or candidate_page.status >= 400:
+                    continue
+                candidate_title = extract_page_title(candidate_page.text) or anchor_text
+                candidate_description = extract_page_description(candidate_page.text) or page_description or ""
+                if not self._matches_property_candidate(target_name, request.location, candidate_title, candidate_description, normalized):
+                    continue
                 score, matched_terms = compute_relevance(
-                    f"{target_name} {anchor_text}",
-                    page_description or "",
+                    f"{target_name} {anchor_text} {candidate_title}",
+                    candidate_description,
                     query_terms,
                     normalized,
                 )
@@ -245,15 +249,83 @@ class StaysCrawler:
                     booking_url=normalized,
                     source=f"{item.source}_direct_hunter",
                     discovered_on=current_url,
-                    title=(anchor_text[:220] or target_name[:220]),
-                    snippet=((page_description or item.snippet or "")[:300]),
+                    title=(candidate_title[:220] or target_name[:220]),
+                    snippet=(candidate_description[:300] or (page_description or item.snippet or "")[:300]),
                     score=score + 1.2,
                     matched_terms=matched_terms,
                 )
-                discovered.append(self._enrich_result_hit(hit, request, parsed_result_cache))
+                discovered.append(self._enrich_result_hit(hit, request, parsed_result_cache, prefetched_html=candidate_page.text))
                 if len(discovered) >= 6:
                     return discovered
         return discovered
+
+    def _build_hunter_queries(self, target_name: str, location: str) -> list[str]:
+        name_tokens = self._signature_tokens(target_name)
+        name_phrase = " ".join(name_tokens[:6]) or target_name
+        variants = [
+            f"{name_phrase} {location} official site",
+            f"{name_phrase} {location} direct booking",
+            f"{name_phrase} {location} owner direct website",
+        ]
+        out: list[str] = []
+        seen: set[str] = set()
+        for value in variants:
+            normalized = " ".join(value.strip().split())
+            if not normalized or normalized in seen:
+                continue
+            out.append(normalized)
+            seen.add(normalized)
+        return out
+
+    def _signature_tokens(self, text: str) -> list[str]:
+        ignore = {
+            "airbnb",
+            "booking",
+            "book",
+            "direct",
+            "official",
+            "site",
+            "property",
+            "properties",
+            "listing",
+            "stay",
+            "stays",
+            "rental",
+            "rentals",
+            "home",
+            "homes",
+            "host",
+            "hotel",
+        }
+        out: list[str] = []
+        seen: set[str] = set()
+        for token in tokenize(text):
+            if len(token) < 4 or token in ignore or token in seen:
+                continue
+            out.append(token)
+            seen.add(token)
+        return out
+
+    def _matches_property_candidate(
+        self,
+        target_name: str,
+        location: str,
+        candidate_title: str,
+        candidate_description: str,
+        candidate_url: str,
+    ) -> bool:
+        name_tokens = self._signature_tokens(target_name)
+        if not name_tokens:
+            return False
+        location_tokens = self._signature_tokens(location)
+        candidate_tokens = set(tokenize(f"{candidate_title} {candidate_description} {candidate_url}"))
+        name_match_count = sum(1 for token in name_tokens if token in candidate_tokens)
+        location_match_count = sum(1 for token in location_tokens if token in candidate_tokens)
+        if name_match_count >= 2:
+            return True
+        if name_match_count >= 1 and (location_match_count >= 1 or len(name_tokens) == 1):
+            return True
+        return False
 
     def _enrich_result_hit(
         self,
