@@ -142,6 +142,30 @@ def is_ota_url(url: str) -> bool:
     return any(hint in host for hint in OTA_HOST_HINTS)
 
 
+def extract_page_title(html: str) -> str | None:
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    if not title_match:
+        return None
+    value = unescape(re.sub(r"\s+", " ", title_match.group(1))).strip()
+    return value[:220] if value else None
+
+
+def extract_page_description(html: str) -> str | None:
+    patterns = (
+        r'<meta[^>]+(?:name|property)=["\']description["\'][^>]*content=["\']([^"\']+)["\']',
+        r'<meta[^>]+(?:name|property)=["\']og:description["\'][^>]*content=["\']([^"\']+)["\']',
+        r'<meta[^>]+(?:name|property)=["\']twitter:description["\'][^>]*content=["\']([^"\']+)["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html, re.IGNORECASE)
+        if not match:
+            continue
+        value = unescape(re.sub(r"\s+", " ", match.group(1))).strip()
+        if value:
+            return value[:300]
+    return None
+
+
 def extract_primary_image_details(html: str) -> tuple[str | None, str | None]:
     image_url_match = re.search(
         r'<meta[^>]+(?:property|name)=["\'](?:og:image|twitter:image)["\'][^>]*content=["\']([^"\']+)["\']',

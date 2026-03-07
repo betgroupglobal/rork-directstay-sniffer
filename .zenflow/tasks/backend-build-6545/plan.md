@@ -149,3 +149,9 @@ Update `{@artifacts_path}/plan.md`.
 - Preserved existing functionality while improving robustness (safe response parsing and HTML escaping for rendered result fields).
 - Kept Direct Hunt behavior unchanged and retained existing mode endpoints and filtering logic.
 - Validated script syntax with `node --check web/app.js`.
+
+### [x] Step: Parse each discovered result URL for results and direct hunter enrichment
+- Updated crawler result generation to parse each individual result URL and extract page title, description, image details, and estimated cost.
+- Added per-request enrichment cache to avoid duplicate parsing for repeated result URLs.
+- Applied the same enriched result pipeline for standard results and Direct Hunter output.
+- Updated crawler tests and validated with `PYTHONPATH=backend python3 -m unittest discover -s backend/tests`.

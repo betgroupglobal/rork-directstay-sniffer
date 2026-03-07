@@ -35,7 +35,8 @@ class FakeSource(SearchSource):
 class TestCrawler(unittest.TestCase):
     def test_discovers_booking_links(self):
         pages = {
-            "https://example.com/search": '<html><head><meta property="og:image" content="https://img.example.com/house.jpg"><meta property="og:description" content="Oceanfront villa with private deck"></head><body>$250 per night <a href="https://host.com/book/blue-house">Book now</a></body></html>'
+            "https://example.com/search": '<html><body><a href="https://host.com/book/blue-house">Book now</a></body></html>',
+            "https://host.com/book/blue-house": '<html><head><title>Blue House</title><meta property="og:image" content="https://img.example.com/house.jpg"><meta property="og:description" content="Oceanfront villa with private deck"></head><body>$250 per night</body></html>',
         }
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "crawler.db")
@@ -51,6 +52,8 @@ class TestCrawler(unittest.TestCase):
             result = crawler.crawl(req)
             self.assertEqual(result.total, 1)
             self.assertEqual(result.results[0].booking_url, "https://host.com/book/blue-house")
+            self.assertEqual(result.results[0].title, "Blue House")
+            self.assertEqual(result.results[0].snippet, "Oceanfront villa with private deck")
             self.assertEqual(result.results[0].image_url, "https://img.example.com/house.jpg")
             self.assertEqual(result.results[0].image_description, "Oceanfront villa with private deck")
             self.assertEqual(result.results[0].estimated_cost, "$ 750 for 3 nights")
@@ -74,7 +77,7 @@ class TestCrawler(unittest.TestCase):
             first = crawler.crawl(req)
             second = crawler.crawl(req)
             self.assertEqual(first.total, second.total)
-            self.assertEqual(fetcher.calls, 1)
+            self.assertEqual(fetcher.calls, 2)
 
     def test_does_not_return_search_results_pages(self):
         pages = {

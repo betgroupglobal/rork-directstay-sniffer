@@ -7,6 +7,8 @@ from stays_crawler.extract import (
     compute_relevance,
     extract_estimated_cost,
     extract_links,
+    extract_page_description,
+    extract_page_title,
     extract_primary_image_details,
     is_direct_property_url,
     is_ota_url,
@@ -65,6 +67,7 @@ class StaysCrawler:
         self.store.enqueue_seeds(request_key, all_seed_hits, depth=0)
         query_terms = self._build_terms(request)
         scored: dict[str, BookingHit] = {}
+        parsed_result_cache: dict[str, dict[str, str | None]] = {}
         processed_by_source: dict[str, int] = defaultdict(int)
         while True:
             item = self.store.pop_next_pending(request_key)
@@ -74,7 +77,7 @@ class StaysCrawler:
                 self.store.mark_done(item.item_id)
                 continue
             processed_by_source[item.source] += 1
-            for hit in self._scan_item(item, request, query_terms, depth_limit, request_key):
+            for hit in self._scan_item(item, request, query_terms, depth_limit, request_key, parsed_result_cache):
                 if request.exclude_ota and is_ota_url(hit.booking_url):
                     continue
                 existing = scored.get(hit.booking_url)
@@ -86,56 +89,109 @@ class StaysCrawler:
         self.store.set_cached_response(request_key, response)
         return response
 
-    def _scan_item(self, item: QueueItem, request: CrawlRequest, query_terms: list[str], depth_limit: int, request_key: str) -> list[BookingHit]:
+    def _scan_item(
+        self,
+        item: QueueItem,
+        request: CrawlRequest,
+        query_terms: list[str],
+        depth_limit: int,
+        request_key: str,
+        parsed_result_cache: dict[str, dict[str, str | None]],
+    ) -> list[BookingHit]:
         current_url = normalize_url(item.url)
         page = self.fetcher.fetch(current_url)
         if not page or page.status >= 400:
             return []
         snippet = page.text[:1200]
-        title = item.title or ""
-        image_url, image_description = extract_primary_image_details(page.text)
-        estimated_cost = extract_estimated_cost(page.text, request.check_in, request.check_out)
+        page_title = extract_page_title(page.text)
+        page_description = extract_page_description(page.text)
+        base_title = (item.title or page_title or current_url)[:220]
+        base_snippet = (page_description or snippet[:300]).strip()[:300]
         outputs: list[BookingHit] = []
-        score, matched = compute_relevance(title, snippet, query_terms, current_url)
+        score, matched = compute_relevance(base_title, snippet, query_terms, current_url)
         if is_direct_property_url(current_url) and score > 0:
-            outputs.append(
-                BookingHit(
-                    booking_url=current_url,
-                    source=item.source,
-                    discovered_on=current_url,
-                    title=title[:220],
-                    snippet=snippet[:300],
-                    score=score,
-                    matched_terms=matched,
-                    image_url=image_url,
-                    image_description=image_description,
-                    estimated_cost=estimated_cost,
-                )
+            hit = BookingHit(
+                booking_url=current_url,
+                source=item.source,
+                discovered_on=current_url,
+                title=base_title,
+                snippet=base_snippet,
+                score=score,
+                matched_terms=matched,
             )
+            outputs.append(self._enrich_result_hit(hit, request, parsed_result_cache, prefetched_html=page.text))
         links = extract_links(page.text, current_url)
         queued_links: list[tuple[str, str, str]] = []
         for link, anchor_text in links:
             link_score, link_matched = compute_relevance(anchor_text, snippet[:240], query_terms, link)
             if is_direct_property_url(link) and link_score > 0:
-                outputs.append(
-                    BookingHit(
-                        booking_url=link,
-                        source=item.source,
-                        discovered_on=current_url,
-                        title=anchor_text[:220] or title[:220],
-                        snippet=snippet[:300],
-                        score=link_score + 1.0,
-                        matched_terms=link_matched,
-                        image_url=image_url,
-                        image_description=image_description,
-                        estimated_cost=estimated_cost,
-                    )
+                hit = BookingHit(
+                    booking_url=link,
+                    source=item.source,
+                    discovered_on=current_url,
+                    title=(anchor_text[:220] or base_title),
+                    snippet=base_snippet,
+                    score=link_score + 1.0,
+                    matched_terms=link_matched,
                 )
+                outputs.append(self._enrich_result_hit(hit, request, parsed_result_cache))
             if item.depth < depth_limit and _is_same_site(current_url, link):
-                queued_links.append((link, item.source, anchor_text[:220] or title[:220]))
+                queued_links.append((link, item.source, anchor_text[:220] or base_title))
         if queued_links:
             self.store.enqueue_links(request_key, queued_links, depth=item.depth + 1)
         return outputs
+
+    def _enrich_result_hit(
+        self,
+        hit: BookingHit,
+        request: CrawlRequest,
+        parsed_result_cache: dict[str, dict[str, str | None]],
+        prefetched_html: str | None = None,
+    ) -> BookingHit:
+        key = normalize_url(hit.booking_url)
+        cached = parsed_result_cache.get(key)
+        if cached is None:
+            page_text = prefetched_html
+            if page_text is None:
+                page = self.fetcher.fetch(key)
+                if page is not None and page.status < 400:
+                    page_text = page.text
+            if page_text is None:
+                cached = {
+                    "title": None,
+                    "snippet": None,
+                    "image_url": None,
+                    "image_description": None,
+                    "estimated_cost": None,
+                }
+            else:
+                parsed_title = extract_page_title(page_text)
+                parsed_description = extract_page_description(page_text)
+                parsed_image_url, parsed_image_description = extract_primary_image_details(page_text)
+                parsed_cost = extract_estimated_cost(page_text, request.check_in, request.check_out)
+                cached = {
+                    "title": parsed_title,
+                    "snippet": parsed_description,
+                    "image_url": parsed_image_url,
+                    "image_description": parsed_image_description,
+                    "estimated_cost": parsed_cost,
+                }
+            parsed_result_cache[key] = cached
+
+        title = (cached.get("title") or hit.title or key)[:220]
+        snippet = (cached.get("snippet") or hit.snippet or "")[:300]
+        return BookingHit(
+            booking_url=hit.booking_url,
+            source=hit.source,
+            discovered_on=hit.discovered_on,
+            title=title,
+            snippet=snippet,
+            score=hit.score,
+            matched_terms=hit.matched_terms,
+            image_url=cached.get("image_url") or hit.image_url,
+            image_description=cached.get("image_description") or hit.image_description,
+            estimated_cost=cached.get("estimated_cost") or hit.estimated_cost,
+        )
 
     def _build_sources(self) -> list[SearchSource]:
         return [
