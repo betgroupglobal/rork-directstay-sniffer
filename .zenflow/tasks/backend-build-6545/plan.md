@@ -120,3 +120,6 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Deploy result card update to Vercel production
 - Deployed `web/` to Vercel production after adding Description/Price fields.
 - Verified alias `https://nopays-stays-web.vercel.app` responds successfully.
+
+### [x] Step: Update background asset to f72481ee-9783-419d-91bb-ed3d29951a73.jpg
+- Refreshed `web/background.jpg` using the provided source image from `.zenflow-images`.
