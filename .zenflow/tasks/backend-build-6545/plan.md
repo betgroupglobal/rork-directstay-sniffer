@@ -173,3 +173,6 @@ Update `{@artifacts_path}/plan.md`.
 - Refined browser header with a cleaner brand layout (single logo, brand copy, live badge) and improved responsive behavior.
 - Enhanced visual polish across panels, form controls, buttons, and result cards for a sleeker glass-style theme while preserving existing functionality.
 - Validated browser script syntax (`node --check web/app.js`).
+
+### [x] Step: Update background to newly provided f72481ee-9783-419d-91bb-ed3d29951a73 PNG
+- Replaced `web/background.jpg` with the newly provided image asset from `.zenflow-images/27bc56d2-f75a-42f0-9fb3-e2017ad1aef7.png`.
