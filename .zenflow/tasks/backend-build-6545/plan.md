@@ -129,3 +129,8 @@ Update `{@artifacts_path}/plan.md`.
 - Wired `web/app.js` so clicking `Direct Hunt` sets mode to `direct_hunter` and submits the form.
 - Updated button-state handling and styling in `web/app.js` and `web/styles.css`.
 - Validated script syntax with `node --check web/app.js`.
+
+### [x] Step: Add provided logos to header
+- Copied provided logo assets into `web/logo-primary.png` and `web/logo-secondary.png`.
+- Updated `web/index.html` header to render both logos above the title.
+- Added responsive header-logo styling in `web/styles.css`.

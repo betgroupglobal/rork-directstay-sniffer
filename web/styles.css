@@ -33,6 +33,27 @@ body {
   gap: 1rem;
 }
 
+.hero-logos {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.35rem;
+}
+
+.hero-logo {
+  display: block;
+  height: auto;
+  border-radius: 10px;
+}
+
+.hero-logo-primary {
+  width: clamp(52px, 8vw, 74px);
+}
+
+.hero-logo-secondary {
+  width: clamp(120px, 18vw, 180px);
+}
+
 .hero h1 {
   margin: 0.2rem 0 0;
   font-size: clamp(1.4rem, 3vw, 2.3rem);
@@ -260,4 +281,7 @@ button:hover { filter: brightness(1.05); }
 
 @media (max-width: 680px) {
   .checks { grid-column: span 1; flex-direction: column; align-items: flex-start; }
+  .hero-logos { gap: 0.45rem; }
+  .hero-logo-primary { width: 50px; }
+  .hero-logo-secondary { width: 130px; }
 }
