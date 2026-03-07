@@ -211,3 +211,9 @@ Update `{@artifacts_path}/plan.md`.
 - Updated `web/app.js` form submit flow so primary search always executes crawl mode (`crawl`) rather than API provider-only mode.
 - Kept Direct Hunter initiation exclusive to the `Direct Hunt` button and adjusted default source fallback label for non-provider mode.
 - Validated browser JS syntax (`node --check web/app.js`).
+
+### [x] Step: Refine search relevance and extend test coverage
+- Refined search relevance matching in `backend/stays_crawler/extract.py` to use token/phrase-aware matching and deduplicate repeated terms.
+- Improved false-positive resistance so partial substrings (for example `pet` in `carpet`) do not score as matches.
+- Extended backend search tests in `backend/tests/test_crawler.py` with relevance-focused cases for substring avoidance and phrase dedup scoring.
+- Validated full backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing.

@@ -3,6 +3,7 @@ import tempfile
 import unittest
 
 from stays_crawler.crawler import StaysCrawler
+from stays_crawler.extract import compute_relevance
 from stays_crawler.fetcher import FetchedPage
 from stays_crawler.models import CrawlRequest, SeedHit
 from stays_crawler.sources.base import SearchSource
@@ -116,6 +117,26 @@ class TestCrawler(unittest.TestCase):
             result = crawler.crawl(req)
             self.assertEqual(result.total, 1)
             self.assertEqual(result.results[0].booking_url, "https://host.com/book/blue-house")
+
+    def test_compute_relevance_avoids_partial_substring_matches(self):
+        score, matched = compute_relevance(
+            title="Coastal carpet villa",
+            snippet="Sunny deck with ocean view",
+            terms=["pet"],
+            url="https://example.com/listing/coastal-villa",
+        )
+        self.assertEqual(score, 0.0)
+        self.assertEqual(matched, [])
+
+    def test_compute_relevance_matches_phrases_once(self):
+        score, matched = compute_relevance(
+            title="Owner direct holiday rental in Byron Bay",
+            snippet="Book direct for best rate",
+            terms=["owner direct", "owner direct", "BYRON", "byron"],
+            url="https://host.com/book/blue-house",
+        )
+        self.assertEqual(score, 4.5)
+        self.assertEqual(matched, ["owner direct", "byron"])
 
 
 if __name__ == "__main__":

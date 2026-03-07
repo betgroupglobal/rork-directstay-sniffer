@@ -233,12 +233,31 @@ def tokenize(text: str) -> list[str]:
     return [t for t in re.findall(r"[a-z0-9]+", text.lower()) if len(t) > 1]
 
 
+def _term_matches_corpus(term: str, corpus_tokens: set[str], normalized_corpus: str) -> bool:
+    if not term:
+        return False
+    term_tokens = tokenize(term)
+    if not term_tokens:
+        return False
+    if len(term_tokens) == 1:
+        return term_tokens[0] in corpus_tokens
+    phrase = " ".join(term_tokens)
+    return phrase in normalized_corpus
+
+
 def compute_relevance(title: str, snippet: str, terms: list[str], url: str) -> tuple[float, list[str]]:
     corpus = f"{title} {snippet} {url}".lower()
+    normalized_corpus = " ".join(tokenize(corpus))
+    corpus_tokens = set(normalized_corpus.split())
     matched: list[str] = []
+    seen_terms: set[str] = set()
     score = 0.0
-    for term in terms:
-        if term and term in corpus:
+    for raw_term in terms:
+        term = raw_term.strip().lower()
+        if not term or term in seen_terms:
+            continue
+        seen_terms.add(term)
+        if _term_matches_corpus(term, corpus_tokens, normalized_corpus):
             matched.append(term)
             score += 1.0
     if is_likely_booking_url(url):
