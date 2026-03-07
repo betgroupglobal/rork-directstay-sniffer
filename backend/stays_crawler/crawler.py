@@ -257,12 +257,19 @@ class StaysCrawler:
             parts.append(request.check_in)
         if request.check_out:
             parts.append(request.check_out)
+
+        normalized_parts: list[str] = []
+        for part in parts:
+            value = " ".join(str(part).strip().lower().split())
+            if value:
+                normalized_parts.append(value)
+
         dedup: list[str] = []
         seen: set[str] = set()
-        for token in tokenize(" ".join(parts)):
-            if token not in seen:
-                dedup.append(token)
-                seen.add(token)
+        for term in normalized_parts + tokenize(" ".join(normalized_parts)):
+            if term not in seen:
+                dedup.append(term)
+                seen.add(term)
         return dedup
 
 

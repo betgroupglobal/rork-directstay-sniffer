@@ -217,3 +217,9 @@ Update `{@artifacts_path}/plan.md`.
 - Improved false-positive resistance so partial substrings (for example `pet` in `carpet`) do not score as matches.
 - Extended backend search tests in `backend/tests/test_crawler.py` with relevance-focused cases for substring avoidance and phrase dedup scoring.
 - Validated full backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing.
+
+### [x] Step: Re-test effectiveness and further refine query matching quality
+- Re-ran full backend suite as baseline and confirmed all tests passing before/after refinement.
+- Improved term generation in `backend/stays_crawler/crawler.py` to preserve multi-word intent phrases (for example `owner direct`, `book direct`) while also keeping token terms.
+- Added search quality coverage in `backend/tests/test_crawler.py` to assert Direct Hunter phrase terms are retained in built query terms.
+- Re-validated backend suite (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) with all tests passing (16 tests).

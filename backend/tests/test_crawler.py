@@ -138,6 +138,22 @@ class TestCrawler(unittest.TestCase):
         self.assertEqual(score, 4.5)
         self.assertEqual(matched, ["owner direct", "byron"])
 
+    def test_build_terms_keeps_direct_hunter_phrases(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "crawler.db")
+            crawler = StaysCrawler(
+                fetcher=FakeFetcher({}),
+                default_depth=1,
+                default_pages_per_source=5,
+                store=CrawlStore(db_path),
+                cache_ttl_seconds=600,
+            )
+            terms = crawler._build_terms(CrawlRequest(location="Byron Bay", direct_hunter=True, max_results=5))
+            self.assertIn("byron bay", terms)
+            self.assertIn("owner direct", terms)
+            self.assertIn("book direct", terms)
+            self.assertIn("byron", terms)
+
 
 if __name__ == "__main__":
     unittest.main()
