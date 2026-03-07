@@ -105,8 +105,9 @@ function getEndpointForMode(mode) {
 
 function applyDirectHunterDefaults(mode, payload) {
   if (mode !== 'direct_hunter') return;
-  payload.crawl_depth = Math.max(2, Number(payload.crawl_depth || 0));
-  payload.max_pages_per_source = Math.max(35, Number(payload.max_pages_per_source || 0));
+  payload.direct_hunter = true;
+  payload.crawl_depth = Math.max(3, Number(payload.crawl_depth || 0));
+  payload.max_pages_per_source = Math.max(60, Number(payload.max_pages_per_source || 0));
   payload.exclude_ota = true;
   if (payload.whole_home !== true) payload.whole_home = true;
 }

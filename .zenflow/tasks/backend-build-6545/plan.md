@@ -159,3 +159,10 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Deploy latest backend and web updates to Vercel
 - Deployed backend and confirmed health endpoint at `https://directstay-crawl-api.vercel.app/health` returns `{"status":"ok"}`.
 - Deployed web app and verified alias `https://nopays-stays-web.vercel.app` responds successfully.
+
+### [x] Step: Revise and enhance Direct Hunter effectiveness
+- Increased Direct Hunter crawl intensity in backend (`crawl_depth` minimum 3, `max_pages_per_source` minimum 60) to widen direct-source coverage.
+- Added Direct Hunter-specific scoring boosts for likely direct-booking URLs and richer listing signals while penalizing OTA hosts.
+- Expanded search-engine discovery for Direct Hunter with multiple high-intent query variants and deduped seed URLs across variants.
+- Updated request model parsing for `direct_hunter` and aligned frontend Direct Hunt payload defaults to activate the stronger backend path.
+- Validated with backend tests (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) and browser JS syntax check (`node --check web/app.js`).

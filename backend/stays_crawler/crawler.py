@@ -55,6 +55,9 @@ class StaysCrawler:
     def crawl(self, request: CrawlRequest) -> CrawlResponse:
         depth_limit = self.default_depth if request.crawl_depth is None else max(0, request.crawl_depth)
         pages_per_source = self.default_pages_per_source if request.max_pages_per_source is None else max(1, request.max_pages_per_source)
+        if request.direct_hunter:
+            depth_limit = max(3, depth_limit)
+            pages_per_source = max(60, pages_per_source)
         request_key = self.store.make_request_key(request)
         cached = self.store.get_cached_response(request_key, self.cache_ttl_seconds)
         if cached is not None:
@@ -80,6 +83,8 @@ class StaysCrawler:
             for hit in self._scan_item(item, request, query_terms, depth_limit, request_key, parsed_result_cache):
                 if request.exclude_ota and is_ota_url(hit.booking_url):
                     continue
+                if request.direct_hunter:
+                    hit = self._apply_direct_hunter_boosts(hit)
                 existing = scored.get(hit.booking_url)
                 if existing is None or hit.score > existing.score:
                     scored[hit.booking_url] = hit
@@ -193,6 +198,32 @@ class StaysCrawler:
             estimated_cost=cached.get("estimated_cost") or hit.estimated_cost,
         )
 
+    def _apply_direct_hunter_boosts(self, hit: BookingHit) -> BookingHit:
+        adjusted = hit.score
+        lower_url = hit.booking_url.lower()
+        if is_ota_url(lower_url):
+            adjusted -= 4.0
+        else:
+            adjusted += 2.0
+        if any(token in lower_url for token in ("/book", "/reserve", "/property", "/listing", "/accommodation")):
+            adjusted += 1.25
+        if hit.image_url:
+            adjusted += 0.35
+        if hit.estimated_cost:
+            adjusted += 0.35
+        return BookingHit(
+            booking_url=hit.booking_url,
+            source=hit.source,
+            discovered_on=hit.discovered_on,
+            title=hit.title,
+            snippet=hit.snippet,
+            score=adjusted,
+            matched_terms=hit.matched_terms,
+            image_url=hit.image_url,
+            image_description=hit.image_description,
+            estimated_cost=hit.estimated_cost,
+        )
+
     def _build_sources(self) -> list[SearchSource]:
         return [
             DuckDuckGoSource(self.fetcher),
@@ -210,6 +241,8 @@ class StaysCrawler:
 
     def _build_terms(self, request: CrawlRequest) -> list[str]:
         parts: list[str] = [request.location, "direct", "booking", "holiday", "stay"]
+        if request.direct_hunter:
+            parts.extend(["book direct", "owner direct", "official site", "no service fee", "best direct rate"])
         if request.bedrooms:
             parts.extend([str(request.bedrooms), "bedroom"])
         if request.bathrooms:

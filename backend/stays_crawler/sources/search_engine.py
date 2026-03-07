@@ -15,17 +15,23 @@ class DuckDuckGoSource(SearchSource):
         self.fetcher = fetcher
 
     def discover(self, request: CrawlRequest) -> list[SeedHit]:
-        query = build_query(request)
-        url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
-        page = self.fetcher.fetch(url)
-        if not page or page.status >= 400:
-            return []
+        queries = build_queries(request)
         hits: list[SeedHit] = []
-        for link, text in extract_links(page.text, url):
-            resolved = _resolve_duckduckgo_redirect(link)
-            if not resolved:
+        seen: set[str] = set()
+        for query in queries:
+            url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
+            page = self.fetcher.fetch(url)
+            if not page or page.status >= 400:
                 continue
-            hits.append(SeedHit(url=normalize_url(resolved), source=self.name, title=text.strip()[:220], snippet=""))
+            for link, text in extract_links(page.text, url):
+                resolved = _resolve_duckduckgo_redirect(link)
+                if not resolved:
+                    continue
+                normalized = normalize_url(resolved)
+                if normalized in seen:
+                    continue
+                hits.append(SeedHit(url=normalized, source=self.name, title=text.strip()[:220], snippet=""))
+                seen.add(normalized)
         return hits
 
 
@@ -40,6 +46,27 @@ def build_query(request: CrawlRequest) -> str:
     if request.whole_home:
         parts.append("whole home")
     return " ".join(p for p in parts if p)
+
+
+def build_queries(request: CrawlRequest) -> list[str]:
+    base = build_query(request)
+    if not request.direct_hunter:
+        return [base]
+    variants = [
+        f"{request.location} owner direct holiday rental official site",
+        f"{request.location} book direct accommodation no service fee",
+        f"{request.location} direct booking vacation home",
+        base,
+    ]
+    out: list[str] = []
+    seen: set[str] = set()
+    for query in variants:
+        value = " ".join(query.split()).strip()
+        if not value or value in seen:
+            continue
+        out.append(value)
+        seen.add(value)
+    return out
 
 
 def _resolve_duckduckgo_redirect(url: str) -> str | None:
