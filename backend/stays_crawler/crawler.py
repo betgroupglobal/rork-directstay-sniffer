@@ -54,9 +54,9 @@ class StaysCrawler:
 
     def crawl(self, request: CrawlRequest) -> CrawlResponse:
         depth_limit = self.default_depth if request.crawl_depth is None else max(0, request.crawl_depth)
+        depth_limit = min(1, depth_limit)
         pages_per_source = self.default_pages_per_source if request.max_pages_per_source is None else max(1, request.max_pages_per_source)
         if request.direct_hunter:
-            depth_limit = max(3, depth_limit)
             pages_per_source = max(60, pages_per_source)
         request_key = self.store.make_request_key(request)
         cached = self.store.get_cached_response(request_key, self.cache_ttl_seconds)

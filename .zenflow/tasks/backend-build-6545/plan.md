@@ -182,3 +182,8 @@ Update `{@artifacts_path}/plan.md`.
 - Styled terminal output with monospace lines and scrolling log behavior in `web/styles.css`.
 - Wired dynamic scrape-log events into progress lifecycle in `web/app.js` for mode boot, phase transitions, ongoing scrape ticks, completion, and interruption.
 - Validated browser script syntax (`node --check web/app.js`).
+
+### [x] Step: Restrict crawl parsing depth to 1 and deploy-ready update
+- Enforced backend crawl parse depth cap at `1` in `backend/stays_crawler/crawler.py` regardless of requested depth.
+- Updated Direct Hunter frontend payload default to send `crawl_depth = 1` in `web/app.js`.
+- Validated backend tests (`PYTHONPATH=backend python3 -m unittest discover -s backend/tests`) and browser JS syntax (`node --check web/app.js`).
