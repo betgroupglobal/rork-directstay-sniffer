@@ -97,16 +97,15 @@ function renderItems(items, mode) {
     const link = item.booking_url || item.url;
     const title = item.title || link;
     const snippet = item.snippet || '';
+    const shortDescription = (item.image_description || snippet || 'No description available.').trim();
+    const priceText = (item.estimated_cost || item.price || item.price_text || 'Price unavailable').toString().trim();
     const sourceLabel = mode === 'airbnb' ? (item.source || 'airbnb') : (item.source || 'direct-hunter');
     const media = item.image_url ? `<img src="${item.image_url}" alt="${item.image_description || title}" loading="lazy" />` : '';
-    const imageDescription = item.image_description ? `<p>${item.image_description}</p>` : '';
-    const cost = item.estimated_cost ? `<strong>${item.estimated_cost}</strong>` : '';
     li.innerHTML = `
       ${media}
       <a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>
-      <div>${snippet}</div>
-      ${imageDescription}
-      ${cost}
+      <div class="result-description"><span>Description:</span> ${shortDescription}</div>
+      <div class="result-price"><span>Price:</span> ${priceText}</div>
       <small>${sourceLabel}</small>
     `;
     listEl.appendChild(li);

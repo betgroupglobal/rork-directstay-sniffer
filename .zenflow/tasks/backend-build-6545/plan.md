@@ -111,3 +111,8 @@ Update `{@artifacts_path}/plan.md`.
 ### [x] Step: Deploy background revert to Vercel production
 - Deployed `web/` to production with Vercel CLI after background reversion.
 - Verified `https://nopays-stays-web.vercel.app` responds successfully.
+
+### [x] Step: Add short description and price fields to search result cards
+- Updated `web/app.js` result rendering to show labeled `Description` and `Price` fields with fallback values.
+- Styled new result metadata rows in `web/styles.css`.
+- Validated browser script syntax (`node --check web/app.js`).
