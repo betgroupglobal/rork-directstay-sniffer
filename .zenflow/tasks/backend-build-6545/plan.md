@@ -107,3 +107,7 @@ Update `{@artifacts_path}/plan.md`.
 
 ### [x] Step: Revert browser background to first provided image
 - Updated `web/styles.css` background URL from `background.png` back to `background.jpg`.
+
+### [x] Step: Deploy background revert to Vercel production
+- Deployed `web/` to production with Vercel CLI after background reversion.
+- Verified `https://nopays-stays-web.vercel.app` responds successfully.
