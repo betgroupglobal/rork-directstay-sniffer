@@ -199,3 +199,9 @@ Update `{@artifacts_path}/plan.md`.
 - Updated progress lifecycle to print alternating crawl actions and `url` lines in the terminal log during active search.
 - Wired live URL terminal output for both standard search and background Direct Hunt flows.
 - Validated browser JS syntax (`node --check web/app.js`).
+
+### [x] Step: Make initial search API-only with Direct Hunter button initiation
+- Updated `web/index.html` search mode options to API search only for initial form submit flow.
+- Updated `web/app.js` submit handler so primary search always executes API provider mode (`airbnb`) and relabeled primary action to `API Search`.
+- Kept Direct Hunter initiation exclusive to `Direct Hunt` button (background flow unchanged for button-triggered execution).
+- Validated browser JS syntax (`node --check web/app.js`).

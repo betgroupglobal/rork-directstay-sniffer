@@ -241,7 +241,7 @@ function setSearchState(isSearching, mode) {
   }
   buttonEl.disabled = false;
   directHuntBtnEl.disabled = backgroundHuntInFlight;
-  buttonEl.textContent = 'Full Search';
+  buttonEl.textContent = 'API Search';
   directHuntBtnEl.textContent = backgroundHuntInFlight ? 'Hunting...' : 'Direct Hunt';
   refreshViewHuntButton();
 }
@@ -399,11 +399,11 @@ function showBackgroundHuntResults() {
 
 formEl.addEventListener('submit', async (event) => {
   event.preventDefault();
-  await executeSearch();
+  byId('mode').value = 'airbnb';
+  await executeSearch('airbnb');
 });
 
 directHuntBtnEl.addEventListener('click', async () => {
-  byId('mode').value = 'direct_hunter';
   await runDirectHuntInBackground();
 });
 
